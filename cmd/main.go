@@ -1,9 +1,9 @@
 package main
 
 import (
-	"crosine.com/cyprus/server"
+	"fmt"
 )
 
 func main() {
-	server.RunServer()
+	fmt.Println("Hello, World!")
 }
