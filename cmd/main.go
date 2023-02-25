@@ -1,9 +1,17 @@
 package main
 
 import (
-	"fmt"
+	"log"
+
+	"crosine.com/cyprus"
 )
 
 func main() {
-	fmt.Println("Hello, World!")
+	serv, servErr := cyprus.NewServerModule()
+
+	if servErr != nil {
+		log.Fatalf("Server erorr: %v", servErr)
+	}
+
+	serv.Run()
 }

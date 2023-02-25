@@ -1,4 +1,4 @@
-package models
+package ext_models
 
 import (
 	"errors"

@@ -1,12 +1,20 @@
 module crosine.com/cyprus
 
-go 1.16
+go 1.19
 
 require (
+	github.com/CrosineEnterprises/ganymede v0.0.0-20230219184734-b9d377dac827
+	github.com/Pauloo27/go-mpris v1.4.0
+	github.com/godbus/dbus/v5 v5.1.0
 	github.com/google/uuid v1.3.0
+	github.com/vmihailenco/msgpack/v5 v5.3.5
+	nhooyr.io/websocket v1.8.7
+)
+
+require (
 	github.com/klauspost/compress v1.15.15 // indirect
 	github.com/stretchr/testify v1.8.1 // indirect
-	github.com/vmihailenco/msgpack/v5 v5.3.5
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/time v0.3.0
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+
 )
