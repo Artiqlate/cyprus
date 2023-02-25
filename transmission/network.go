@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"crosine.com/cyprus/comm"
 	"crosine.com/cyprus/ext_models"
 	"crosine.com/cyprus/subsystems"
 	"github.com/CrosineEnterprises/ganymede/models"
@@ -30,6 +31,7 @@ type NetworkTransmission struct {
 	capabilities map[string]bool
 	// Media Player Subsystem
 	serverSubsystem *subsystems.ServerSubsystems
+	mpBiDirChan     *comm.BiDirMessageChannel
 }
 
 // -- SETUP METHODS --
@@ -58,6 +60,7 @@ func NewNetworkTransmission() *NetworkTransmission {
 		logf:            log.Printf,
 		capabilities:    map[string]bool{},
 		serverSubsystem: subsystems.NewServerSubsystem(),
+		mpBiDirChan:     comm.NewBiDirMessageChannel(),
 	}
 	newNT.serveMux.HandleFunc("/", newNT.HandleWS)
 	return newNT
@@ -171,7 +174,7 @@ func (nt *NetworkTransmission) ReadLoop() {
 		switch subsystem {
 		case "ping":
 			// Process the ping request
-			ping, pingErr := ext_models.ProcessPing(nt.wsConn, decoder)
+			ping, pingErr := ext_models.ProcessInit(nt.wsConn, decoder)
 			if pingErr != nil {
 				log.Printf("Ping Err: %v\n", pingErr)
 			}
@@ -179,7 +182,7 @@ func (nt *NetworkTransmission) ReadLoop() {
 			for _, v := range ping.Capabilities {
 				nt.capabilities[v] = false
 				if v == "mp" {
-					mpSetupErr := nt.serverSubsystem.SetupMediaPlayer()
+					mpSetupErr := nt.serverSubsystem.SetupMediaPlayer(nt.mpBiDirChan)
 					if mpSetupErr != nil {
 						log.Printf("MediaPlayerSetup: %v\n", mpSetupErr)
 					} else {

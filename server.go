@@ -8,29 +8,33 @@ import (
 	"os/signal"
 	"time"
 
-	"crosine.com/cyprus/ext_models"
+	"crosine.com/cyprus/comm"
 	"crosine.com/cyprus/subsystems"
 	"crosine.com/cyprus/transmission"
 	"github.com/CrosineEnterprises/ganymede/models"
+	"github.com/CrosineEnterprises/ganymede/models/base"
 )
 
 type ServerSignalChannels struct {
 	moduleInitChannel  chan []string
+	moduleCloseChannel chan bool
 	netTransmissionErr chan error
 	progSignals        chan os.Signal
-	commChannels       *transmission.CommChannels
+	commChannels       *comm.CommChannels
 }
 
-func NewServerSignalChannels(moduleInitChan chan []string) *ServerSignalChannels {
+func NewServerSignalChannels(moduleInitChan chan []string, moduleCloseChan chan bool) *ServerSignalChannels {
 	return &ServerSignalChannels{
 		moduleInitChannel:  moduleInitChan,
+		moduleCloseChannel: moduleCloseChan,
 		netTransmissionErr: make(chan error, 1),
 		progSignals:        make(chan os.Signal, 1),
-		commChannels:       transmission.NewCommChannels(),
+		commChannels:       comm.NewCommChannels(),
 	}
 }
 
 type ServerModule struct {
+	logf         func(string, ...interface{})
 	writeChannel chan models.Message
 	nt           *transmission.NetworkTransmissionServer
 	mp           subsystems.MediaPlayerSubsystem
@@ -39,64 +43,83 @@ type ServerModule struct {
 
 func NewServerModule() (*ServerModule, error) {
 	moduleInitChan := make(chan []string, 20)
+	moduleCloseChan := make(chan bool)
 	serverWriteChannel := make(chan models.Message)
-	serverSignalChannels := NewServerSignalChannels(moduleInitChan)
+	serverSignalChannels := NewServerSignalChannels(moduleInitChan, moduleCloseChan)
+	logf := func(s string, i ...interface{}) {
+		fmt.Printf("SRV: %s"+s, time.Now().Format(time.RFC3339), i)
+	}
 	return &ServerModule{
+		logf:         logf,
 		writeChannel: serverWriteChannel,
-		nt:           transmission.NewNetworkTransmissionServer(serverWriteChannel, moduleInitChan, serverSignalChannels.commChannels),
+		nt:           transmission.NewNetworkTransmissionServer(serverWriteChannel, moduleInitChan, moduleCloseChan, serverSignalChannels.commChannels),
 		signals:      serverSignalChannels,
-		mp:           nil,
+		// Modules: Add modules here. This is "mp", media_player module
+		mp: nil,
 	}, nil
 }
 
-func (s *ServerModule) Setup() {
+func (s *ServerModule) setup() {
 	// Interrupt will hit this signal, should make everything
 	signal.Notify(s.signals.progSignals, os.Interrupt)
 
 	// -- Setup for any other modules
 }
 
-func (s *ServerModule) initializeModule(mods []string) {
-	// enabledModules := make([]string, len(mods))
+func (s *ServerModule) initializeModule(mods []string) []string {
+	enabledModules := []string{}
 	// errorList, statusList := make([]error, len(mods)), make([]bool, len(mods))
-	// for _, mod := range mods {
-	// 	switch mod {
-	// 	case "ping":
-	// 		mPlayer, mPlayerErr := subsystems.NewMediaPlayerSubsystem()
-	// 		if mPlayerErr != nil {
-	// 			errorList = append(errorList, mPlayerErr)
-	// 			statusList = append(statusList, false)
-	// 		} else {
-	// 			s.mp = mPlayer
-	// 			errorList = append(errorList, nil)
-	// 			statusList = append(statusList, true)
-	// 			enabledModules = append(enabledModules, mod)
-	// 		}
-	// 	default:
-	// 		errorList = append(errorList, fmt.Errorf("could not start %s", mod))
-	// 		statusList = append(statusList, false)
-	// 	}
-	// }
-	// return enabledModules, statusList, errorList
+	for _, mod := range mods {
+		// TODO: find a better way to transfer the errors
+		fmt.Printf("Enabling modules: %s\n", mod)
+		switch mod {
+		case "mp":
+			mPlayer, mPlayerErr := subsystems.NewMediaPlayerSubsystem(&s.signals.commChannels.MPChannel)
+			if mPlayerErr != nil {
+				fmt.Printf("mPlayerErr: %s", mPlayerErr)
+			} else {
+				s.mp = mPlayer
+				// Run media player coroutine
+				go s.mp.Routine()
+				enabledModules = append(enabledModules, mod)
+			}
+		}
+	}
+	return enabledModules
+}
+
+func (s *ServerModule) closeModule() {
+	// -- MEDIA PLAYER
+	if s.mp != nil {
+		s.mp.Shutdown()
+		s.mp = nil
+	}
 }
 
 func (s *ServerModule) routine() {
 routineForLoop:
 	for {
 		select {
+		// Module Initialization Channel
 		case initModule := <-s.signals.moduleInitChannel:
-			fmt.Printf("Initialization recieved: %s\n", initModule)
-			s.initializeModule(initModule)
+			initializedModules := s.initializeModule(initModule)
+			s.logf("SRV: Initializing Modules : %s\n", initializedModules)
 			// TODO: Pushing to this channel blocks the app. Try fixing this issue here.
-			s.writeChannel <- models.Message{Method: "rinit", Args: &ext_models.InitModules{EnabledModules: initModule}}
-			fmt.Println("After channel")
+			// s.writeChannel <- models.Message{Method: "rinit", Args: base.NewInitFromArgs(initializedModules)}
+			s.writeChannel <- *base.NewInitFromArgs(initializedModules).GenMessage("rinit")
 			continue routineForLoop
+		// Module Close Channel
+		case <-s.signals.moduleCloseChannel:
+			s.logf("SRV: close triggered")
+			s.closeModule()
+		// If the server encounters an error
 		case servErr := <-s.signals.netTransmissionErr:
-			log.Printf("NetworkTransmission error: %v", servErr)
+			s.logf("NetworkTransmission error: %v", servErr)
 			s.signals.netTransmissionErr <- servErr
 			break routineForLoop
+		// When Interrupt Calls are Sent
 		case <-s.signals.progSignals:
-			log.Printf("Server Stopping\n")
+			s.logf("SRV: Stopping\n")
 			break routineForLoop
 		}
 	}
@@ -107,7 +130,12 @@ func (s *ServerModule) shutdown() {
 	defer cancel()
 
 	if len(s.signals.netTransmissionErr) != 0 {
-		log.Printf("server error: %v", <-s.signals.netTransmissionErr)
+		s.logf("server error: %v", <-s.signals.netTransmissionErr)
+	}
+
+	// -- MEDIA PLAYER SHUTDOWN
+	if s.mp != nil {
+		s.mp.Shutdown()
 	}
 
 	// -- NETWORK TRANSMISSION SHUTDOWN
@@ -119,12 +147,10 @@ func (s *ServerModule) shutdown() {
 
 func (s *ServerModule) Run() {
 	// -- SETUP
-	s.Setup()
+	s.setup()
 
 	// -- TRANSMISSION MODULE --
 	go s.nt.Coroutine(s.signals.netTransmissionErr)
-
-	// -- MEDIAPLAYER MODULE --
 
 	// -- RUN ROUTINE
 	s.routine()

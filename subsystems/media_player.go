@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"runtime"
 
+	"crosine.com/cyprus/comm"
 	media_player "crosine.com/cyprus/subsystems/media_player"
 )
 
 type MediaPlayerSubsystem interface {
 	Setup() error
 	Routine()
+	Shutdown()
 }
 
-func NewMediaPlayerSubsystem() (MediaPlayerSubsystem, error) {
+func NewMediaPlayerSubsystem(bidirChan *comm.BiDirMessageChannel) (MediaPlayerSubsystem, error) {
 	// Only platform currently supported is Linux
 	if runtime.GOOS == "linux" {
-		return media_player.NewLinuxMediaPlayerSubsystem(), nil
+		return media_player.NewLinuxMediaPlayerSubsystem(bidirChan), nil
 	}
 	return nil, fmt.Errorf("MediaPlayerSubsystem: OS not supported (%s)", runtime.GOOS)
 }

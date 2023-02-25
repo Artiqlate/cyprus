@@ -13,12 +13,12 @@ import (
 
 type LinuxMediaPlayerSubsystem struct {
 	bus          *dbus.Conn
-	bidirChannel comm.BiDirMessageChannel
+	bidirChannel *comm.BiDirMessageChannel
 }
 
-func NewLinuxMediaPlayerSubsystem() *LinuxMediaPlayerSubsystem {
+func NewLinuxMediaPlayerSubsystem(bidirChan *comm.BiDirMessageChannel) *LinuxMediaPlayerSubsystem {
 	return &LinuxMediaPlayerSubsystem{
-		bidirChannel: *comm.NewBiDirMessageChannel(),
+		bidirChannel: bidirChan,
 	}
 }
 
@@ -52,28 +52,42 @@ func (l *LinuxMediaPlayerSubsystem) List() ([]string, error) {
 }
 
 func (l *LinuxMediaPlayerSubsystem) Routine() {
-	close := false
+	fmt.Println("MP: Starting")
 	if l.bidirChannel.InChannel == nil || l.bidirChannel.OutChannel == nil {
 		return
 	}
-	for !close {
-		// This read channel will recieve the and will run actions which are deemed required
-		readData := <-l.bidirChannel.InChannel
-		decoder := msgpack.NewDecoder(bytes.NewReader(readData))
-		methodData, decodeErr := decoder.DecodeString()
-		if decodeErr != nil {
-			fmt.Printf("Decode error: %v", decodeErr)
-		}
-		_, method, methodExists := strings.Cut(methodData, ":")
-		if !methodExists {
-			fmt.Println("Method doesn't exist!!")
-		}
-		switch method {
-		// TODO: Switch to just "close". Strip the submodule name if exists
-		case "mp:close", "close":
-			close = true
-		default:
+	for close := false; !close; {
+		select {
+		case readData := <-l.bidirChannel.InChannel:
+			// This read channel will recieve the and will run actions which are deemed required
+			decoder := msgpack.NewDecoder(bytes.NewReader(readData))
+			methodData, decodeErr := decoder.DecodeString()
+			if decodeErr != nil {
+				fmt.Printf("Decode error: %v", decodeErr)
+			}
+
+			methodWithoutValue, method, methodExists := strings.Cut(methodData, ":")
+			if !methodExists {
+				fmt.Println("Method doesn't exist!!")
+				method = methodWithoutValue
+			}
+			switch method {
+			// TODO: Switch to just "close". Strip the submodule name if exists
+			case "mp:close", "close":
+				close = true
+			default:
+			}
+		case moduleCommand := <-l.bidirChannel.CommandChannel:
+			// If there's any other commands, put here
+			switch moduleCommand {
+			case "close":
+				close = true
+			}
 		}
 	}
-	fmt.Println("Media Player Subsystem Routine Stopping")
+	fmt.Println("MP: Stopping")
+}
+
+func (l *LinuxMediaPlayerSubsystem) Shutdown() {
+	l.bidirChannel.CommandChannel <- "close"
 }

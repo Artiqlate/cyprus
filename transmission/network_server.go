@@ -19,33 +19,26 @@ import (
 // TODO: MOVE TO GANYMEDE, SUBJECT TO CHANGE
 const DEFAULT_PORT = 8000
 
-type CommChannels struct {
-	mediaPlayerChannel comm.BiDirMessageChannel
-}
-
-func NewCommChannels() *CommChannels {
-	return &CommChannels{
-		mediaPlayerChannel: *comm.NewBiDirMessageChannel(),
-	}
-}
-
 type NetworkTransmissionServer struct {
-	moduleInitChan chan []string
-	context        context.Context
-	httpServer     *http.Server
-	serveMux       http.ServeMux
-	wsConn         *websocket.Conn
-	writeChannel   chan models.Message
-	commChannels   *CommChannels
-	logf           func(f string, v ...interface{})
+	moduleInitChan  chan []string
+	moduleCloseChan chan bool
+	context         context.Context
+	httpServer      *http.Server
+	serveMux        http.ServeMux
+	wsConn          *websocket.Conn
+	writeChannel    chan models.Message
+	commChannels    *comm.CommChannels
+	logf            func(f string, v ...interface{})
 }
 
-func NewNetworkTransmissionServer(writeChannel chan models.Message, moduleOutputChan chan []string, commChannels *CommChannels) *NetworkTransmissionServer {
+// -- CONSTRUCTOR
+func NewNetworkTransmissionServer(writeChannel chan models.Message, moduleInitChan chan []string, moduleCloseChan chan bool, commChannels *comm.CommChannels) *NetworkTransmissionServer {
 	newNT := &NetworkTransmissionServer{
-		moduleInitChan: moduleOutputChan,
-		commChannels:   commChannels,
-		writeChannel:   writeChannel,
-		logf:           log.Printf,
+		moduleInitChan:  moduleInitChan,
+		moduleCloseChan: moduleCloseChan,
+		commChannels:    commChannels,
+		writeChannel:    writeChannel,
+		logf:            log.Printf,
 	}
 	newNT.serveMux.HandleFunc("/", newNT.WebsocketHandler)
 	return newNT
@@ -77,19 +70,8 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 	if msDecodeErr != nil {
 		nt.logf("method decode: %v", msDecodeErr)
 	}
-	fmt.Printf("Method and Subsystem: %s\n", methodAndSubsystem)
 
-	// Parse subsystem and method. Assign method as subsystem, if subsystem isn't there.
-	// By this, consider these two commands: "init" and "mp:playpause"
-	// In first one, after cut we have "init" and "", where "init", first element
-	//	is the method.
-	// In second one, after cut, we have "mp" and "playpause", "playpause", the second
-	//	element is the method.
 	subsystem, method, subsystemMethodExists := strings.Cut(methodAndSubsystem, ":")
-	if subsystemMethodExists {
-		subsystem = method
-	}
-
 	fmt.Printf("Subsystem: %s, Method: %s\n", subsystem, method)
 
 	switch subsystem {
@@ -99,27 +81,31 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 			log.Printf("mp:%s method doesn't exist", method)
 		}
 		// Pass the data directly as the decoder has internal state we don't
-		// want to work with
-		fmt.Printf("Media Player Here")
-		nt.commChannels.mediaPlayerChannel.InChannel <- data
-	case "ping":
-		ping, pingErr := ext_models.ProcessPing(nt.wsConn, decoder)
-		if pingErr != nil {
-			nt.logf("Ping err: %v\n", pingErr)
+		// want to work with, in other coroutines
+		nt.commChannels.MPChannel.InChannel <- data
+	case "init":
+		init, initErr := ext_models.ProcessInit(nt.wsConn, decoder)
+		if initErr != nil {
+			nt.logf("Ping err: %v\n", initErr)
 		}
-		// Send it to main server module for processing
-		fmt.Printf("Ping recieved")
-		nt.moduleInitChan <- ping.Capabilities
+		// Send it to main module for processing
+		nt.moduleInitChan <- init.Capabilities
+	case "close":
+		fmt.Println("CLOSE command received from remote. Server Closing")
+		return nil
 	}
 	// Remove this later
 	return nil
 }
 
 func (nt *NetworkTransmissionServer) write(msgData models.Message) error {
+	// Marshal the given message to data
 	encodedData, marshalErr := msgpack.Marshal(&msgData)
 	if marshalErr != nil {
 		return marshalErr
 	}
+	fmt.Printf("%x\n", encodedData)
+	// Encode and send the binary data through WS
 	return nt.wsConn.Write(nt.context, websocket.MessageBinary, encodedData)
 }
 
@@ -177,17 +163,19 @@ func (nt *NetworkTransmissionServer) WebsocketHandler(w http.ResponseWriter, req
 	if wsUpgrdErr != nil {
 		nt.logf("WS Upgrade Error: %v", wsUpgrdErr)
 	}
-	// Make sure to close the connecction if something goes wrong
+	// on WS Error
 	defer nt.wsClose(websocket.StatusInternalError, "SERVER ERROR")
 
 	// Setup function context
 	nt.context = context.Background()
 
-	// Run the write loop
+	// Run Write Loop
+	// TODO: Add synchronization if needed
 	go nt.writeLoop()
 
-	// TODO: Add Write Loop Here
+	// Read loop
 	readErr := nt.readLoop()
+	nt.moduleCloseChan <- true
 	if readErr != nil {
 		log.Printf("Read Error: %v", readErr)
 	} else {

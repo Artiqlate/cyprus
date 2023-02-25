@@ -1,5 +1,7 @@
 package subsystems
 
+import "crosine.com/cyprus/comm"
+
 type ServerSubsystems struct {
 	mp MediaPlayerSubsystem
 }
@@ -10,9 +12,9 @@ func NewServerSubsystem() *ServerSubsystems {
 	}
 }
 
-func (s *ServerSubsystems) SetupMediaPlayer() error {
+func (s *ServerSubsystems) SetupMediaPlayer(mpBiDirChan *comm.BiDirMessageChannel) error {
 	if s.mp != nil {
-		newMediaPlayer, mediaPlayerSetupErr := NewMediaPlayerSubsystem()
+		newMediaPlayer, mediaPlayerSetupErr := NewMediaPlayerSubsystem(mpBiDirChan)
 		if mediaPlayerSetupErr != nil {
 			return mediaPlayerSetupErr
 		}
