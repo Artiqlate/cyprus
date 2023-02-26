@@ -11,6 +11,7 @@ import (
 	"crosine.com/cyprus/comm"
 	"crosine.com/cyprus/subsystems"
 	"crosine.com/cyprus/transmission"
+	"crosine.com/cyprus/utils"
 	"github.com/CrosineEnterprises/ganymede/models"
 	"github.com/CrosineEnterprises/ganymede/models/base"
 )
@@ -47,7 +48,7 @@ func NewServerModule() (*ServerModule, error) {
 	serverWriteChannel := make(chan models.Message)
 	serverSignalChannels := NewServerSignalChannels(moduleInitChan, moduleCloseChan)
 	logf := func(s string, i ...interface{}) {
-		fmt.Printf("SRV: %s"+s, time.Now().Format(time.RFC3339), i)
+		utils.LogFunc("SRV", s, i...)
 	}
 	return &ServerModule{
 		logf:         logf,
@@ -79,6 +80,7 @@ func (s *ServerModule) initializeModule(mods []string) []string {
 				fmt.Printf("mPlayerErr: %s", mPlayerErr)
 			} else {
 				s.mp = mPlayer
+				s.mp.Setup()
 				// Run media player coroutine
 				go s.mp.Routine()
 				enabledModules = append(enabledModules, mod)
@@ -103,14 +105,14 @@ routineForLoop:
 		// Module Initialization Channel
 		case initModule := <-s.signals.moduleInitChannel:
 			initializedModules := s.initializeModule(initModule)
-			s.logf("SRV: Initializing Modules : %s\n", initializedModules)
+			s.logf("Initializing Modules : %s\n", initializedModules)
 			// TODO: Pushing to this channel blocks the app. Try fixing this issue here.
 			// s.writeChannel <- models.Message{Method: "rinit", Args: base.NewInitFromArgs(initializedModules)}
-			s.writeChannel <- *base.NewInitFromArgs(initializedModules).GenMessage("rinit")
+			s.writeChannel <- *base.NewInitWithCapabilities(initializedModules).GenMessage("rinit")
 			continue routineForLoop
 		// Module Close Channel
 		case <-s.signals.moduleCloseChannel:
-			s.logf("SRV: close triggered")
+			s.logf("close triggered")
 			s.closeModule()
 		// If the server encounters an error
 		case servErr := <-s.signals.netTransmissionErr:
@@ -119,7 +121,7 @@ routineForLoop:
 			break routineForLoop
 		// When Interrupt Calls are Sent
 		case <-s.signals.progSignals:
-			s.logf("SRV: Stopping\n")
+			s.logf("Stopping")
 			break routineForLoop
 		}
 	}

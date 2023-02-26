@@ -46,7 +46,7 @@ func NewNetworkTransmissionServer(writeChannel chan models.Message, moduleInitCh
 
 // -- COROUTINE FOR SERVER
 func (nt *NetworkTransmissionServer) Coroutine(errChan chan error) {
-	log.Println("Attempting to start server")
+	nt.logf("Attempting to start server")
 	errChan <- nt.Serve()
 }
 
@@ -188,7 +188,7 @@ func (nt *NetworkTransmissionServer) WebsocketHandler(w http.ResponseWriter, req
 func (nt *NetworkTransmissionServer) readLoop() error {
 	for {
 		_, data, readErr := nt.wsConn.Read(nt.context)
-		println("readLoop:DATA: %x", data)
+		nt.logf("readLoop:DATA: %x", data)
 		if readErr != nil {
 			if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure ||
 				websocket.CloseStatus(readErr) == websocket.StatusGoingAway {
@@ -206,7 +206,11 @@ func (nt *NetworkTransmissionServer) readLoop() error {
 
 func (nt *NetworkTransmissionServer) writeLoop() {
 	for nt.wsConn != nil {
-		writeObject := <-nt.writeChannel
-		nt.write(writeObject)
+		select {
+		case writeObject := <-nt.writeChannel:
+			nt.write(writeObject)
+		case mpObject := <-nt.commChannels.MPChannel.OutChannel:
+			nt.write(mpObject)
+		}
 	}
 }

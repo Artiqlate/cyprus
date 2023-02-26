@@ -9,9 +9,13 @@ import (
 )
 
 type MediaPlayerSubsystem interface {
+	// -- SUBSYSTEM METHODS --
 	Setup() error
 	Routine()
 	Shutdown()
+	// -- MEDIA PLAYER - SPECIFIC METHODS
+	List() ([]string, error)
+	// GetPlayers() error
 }
 
 func NewMediaPlayerSubsystem(bidirChan *comm.BiDirMessageChannel) (MediaPlayerSubsystem, error) {
