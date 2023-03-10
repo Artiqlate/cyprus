@@ -20,6 +20,7 @@ import (
 const DEFAULT_PORT = 8000
 
 type NetworkTransmissionServer struct {
+	init            bool
 	moduleInitChan  chan []string
 	moduleCloseChan chan bool
 	context         context.Context
@@ -34,6 +35,7 @@ type NetworkTransmissionServer struct {
 // -- CONSTRUCTOR
 func NewNetworkTransmissionServer(writeChannel chan models.Message, moduleInitChan chan []string, moduleCloseChan chan bool, commChannels *comm.CommChannels) *NetworkTransmissionServer {
 	newNT := &NetworkTransmissionServer{
+		init:            false,
 		moduleInitChan:  moduleInitChan,
 		moduleCloseChan: moduleCloseChan,
 		commChannels:    commChannels,
@@ -82,7 +84,9 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 		}
 		// Pass the data directly as the decoder has internal state we don't
 		// want to work with, in other coroutines
-		nt.commChannels.MPChannel.InChannel <- data
+		if nt.init {
+			nt.commChannels.MPChannel.InChannel <- data
+		}
 	case "init":
 		init, initErr := ext_models.ProcessInit(nt.wsConn, decoder)
 		if initErr != nil {
@@ -90,7 +94,10 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 		}
 		// Send it to main module for processing
 		nt.moduleInitChan <- init.Capabilities
+		nt.init = true
+		nt.logf("Initialized")
 	case "close":
+		nt.init = false
 		fmt.Println("CLOSE command received from remote. Server Closing")
 		return nil
 	}
@@ -152,6 +159,7 @@ func (nt *NetworkTransmissionServer) wsClose(statusCode websocket.StatusCode, re
 	if nt.wsConn != nil {
 		nt.logf("WS Connection Closing")
 		nt.wsConn.Close(statusCode, reason)
+		nt.init = false
 		nt.wsConn = nil
 	}
 }
