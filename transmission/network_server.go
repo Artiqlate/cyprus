@@ -54,7 +54,6 @@ func (nt *NetworkTransmissionServer) Coroutine(errChan chan error) {
 
 // -- DATA DECODE AND PARSING
 func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
-	fmt.Printf("decodeData\n")
 	// Initialize the decoder object
 	decoder := msgpack.NewDecoder(bytes.NewReader(data))
 
@@ -64,7 +63,7 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 		return arrLenErr
 	}
 	if arrLen < 2 {
-		log.Println("WARN: Method only, no arguments")
+		nt.logf("WARN: Method only, no arguments")
 	}
 
 	// Command must be the first element
@@ -98,7 +97,7 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 		nt.logf("Initialized")
 	case "close":
 		nt.init = false
-		fmt.Println("CLOSE command received from remote. Server Closing")
+		nt.logf("CLOSE command received from remote. Server Closing")
 		return nil
 	}
 	// Remove this later
@@ -111,7 +110,7 @@ func (nt *NetworkTransmissionServer) write(msgData models.Message) error {
 	if marshalErr != nil {
 		return marshalErr
 	}
-	fmt.Printf("%x\n", encodedData)
+	// fmt.Printf("%x\n", encodedData)
 	// Encode and send the binary data through WS
 	return nt.wsConn.Write(nt.context, websocket.MessageBinary, encodedData)
 }

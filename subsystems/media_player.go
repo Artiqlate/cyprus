@@ -14,7 +14,7 @@ type MediaPlayerSubsystem interface {
 	Routine()
 	Shutdown()
 	// -- MEDIA PLAYER - SPECIFIC METHODS
-	List() ([]string, error)
+	ListPlayers() ([]string, error)
 	// GetPlayers() error
 }
 
