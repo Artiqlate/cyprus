@@ -73,13 +73,13 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 	}
 
 	subsystem, method, subsystemMethodExists := strings.Cut(methodAndSubsystem, ":")
-	fmt.Printf("Subsystem: %s, Method: %s\n", subsystem, method)
+	nt.logf("Subsystem: %s, Method: %s\n", subsystem, method)
 
 	switch subsystem {
 	// Add all subsystem-based methods here
 	case "mp":
 		if !subsystemMethodExists {
-			log.Printf("mp:%s method doesn't exist", method)
+			nt.logf("mp:%s method doesn't exist", method)
 		}
 		// Pass the data directly as the decoder has internal state we don't
 		// want to work with, in other coroutines
@@ -119,7 +119,6 @@ func (nt *NetworkTransmissionServer) write(msgData models.Message) error {
 
 // -- Start Server
 func (nt *NetworkTransmissionServer) Serve() error {
-	// return http.ListenAndServe(fmt.Sprintf(":%d", DEFAULT_PORT), &nt.serveMux)
 	nt.httpServer = &http.Server{
 		Handler:      &nt.serveMux,
 		Addr:         fmt.Sprintf(":%d", DEFAULT_PORT),
@@ -144,6 +143,7 @@ func (nt *NetworkTransmissionServer) upgradeToWebsockets(w http.ResponseWriter, 
 		return fmt.Errorf("connection already established")
 	}
 	wsConn, wsConnAcceptErr := websocket.Accept(w, req, &websocket.AcceptOptions{
+		// TODO: Provide a more tighter security.
 		OriginPatterns: []string{"*"},
 	})
 	if wsConnAcceptErr != nil {
@@ -184,9 +184,9 @@ func (nt *NetworkTransmissionServer) WebsocketHandler(w http.ResponseWriter, req
 	readErr := nt.readLoop()
 	nt.moduleCloseChan <- true
 	if readErr != nil {
-		log.Printf("Read Error: %v", readErr)
+		nt.logf("Read Error: %v", readErr)
 	} else {
-		nt.wsClose(websocket.StatusNormalClosure, "THANK YOU")
+		nt.wsClose(websocket.StatusNormalClosure, "Cyprus Disconnected")
 	}
 }
 
