@@ -3,7 +3,7 @@ module crosine.com/cyprus
 go 1.19
 
 require (
-	github.com/CrosineEnterprises/ganymede v0.0.0-20230226191322-c5f4b7c7e48f
+	github.com/CrosineEnterprises/ganymede v0.0.0-20230311163114-4ef4b84181b3
 	github.com/Pauloo27/go-mpris v1.4.0
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/google/uuid v1.3.0

@@ -6,6 +6,10 @@ github.com/CrosineEnterprises/ganymede v0.0.0-20230226190521-f6501dbef2f4 h1:zq/
 github.com/CrosineEnterprises/ganymede v0.0.0-20230226190521-f6501dbef2f4/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
 github.com/CrosineEnterprises/ganymede v0.0.0-20230226191322-c5f4b7c7e48f h1:owI3etLep05B1eh2mhZ22/Zhgq9CMD56Gy6whKkoJBk=
 github.com/CrosineEnterprises/ganymede v0.0.0-20230226191322-c5f4b7c7e48f/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
+github.com/CrosineEnterprises/ganymede v0.0.0-20230311160338-3a340280558e h1:NWZhR94J2f1xHl/5771yk4xQtWJMb5QQofPUbKgxtzM=
+github.com/CrosineEnterprises/ganymede v0.0.0-20230311160338-3a340280558e/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
+github.com/CrosineEnterprises/ganymede v0.0.0-20230311163114-4ef4b84181b3 h1:KtsC2uGMRHvaiRfCMQr4TGzhs9L6s4o5U5tNGHjnjEM=
+github.com/CrosineEnterprises/ganymede v0.0.0-20230311163114-4ef4b84181b3/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
 github.com/Pauloo27/go-mpris v1.4.0 h1:KWNTZuXeOdOdIVdzwG/JOOZHlveNiMjiSaK0AWi220c=
 github.com/Pauloo27/go-mpris v1.4.0/go.mod h1:+9otYxTLPRTVZ6i2k6VrG1Y0RzMbBXGuEUQM4ZSvjxU=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
