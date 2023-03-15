@@ -1,13 +1,3 @@
-github.com/CrosineEnterprises/ganymede v0.0.0-20230226052923-823306ea856d h1:CCL4L9G3BS0uSTxJSmbKEAvZE48N/NVT/+bke4EOMWA=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230226052923-823306ea856d/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230226185829-52beef16e913 h1:1OnKtgoH/mYOCOr7KYFiYRR7vhZZNyq0uzU+h1yCUdM=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230226185829-52beef16e913/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230226190521-f6501dbef2f4 h1:zq/2neY29xMx8eSxs3yHPsgCmFKBbp2zkpjYDxdOTE0=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230226190521-f6501dbef2f4/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230226191322-c5f4b7c7e48f h1:owI3etLep05B1eh2mhZ22/Zhgq9CMD56Gy6whKkoJBk=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230226191322-c5f4b7c7e48f/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230311160338-3a340280558e h1:NWZhR94J2f1xHl/5771yk4xQtWJMb5QQofPUbKgxtzM=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230311160338-3a340280558e/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
 github.com/CrosineEnterprises/ganymede v0.0.0-20230311163114-4ef4b84181b3 h1:KtsC2uGMRHvaiRfCMQr4TGzhs9L6s4o5U5tNGHjnjEM=
 github.com/CrosineEnterprises/ganymede v0.0.0-20230311163114-4ef4b84181b3/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
 github.com/Pauloo27/go-mpris v1.4.0 h1:KWNTZuXeOdOdIVdzwG/JOOZHlveNiMjiSaK0AWi220c=
@@ -41,8 +31,6 @@ github.com/golang/protobuf v1.3.5/go.mod h1:6O5/vntMXwX2lRkT1hjjk0nAC1IDOTvTlVgj
 github.com/google/go-cmp v0.4.0 h1:xsAVV57WRhGj6kEIi8ReJzQlHHqcBYCElAvkovg3B/4=
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
-github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
-github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/gorilla/websocket v1.4.1 h1:q7AeDBpnBk8AogcD4DSag/Ukw/KV+YhzLj2bP5HvKCM=
 github.com/gorilla/websocket v1.4.1/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/json-iterator/go v1.1.9 h1:9yzud/Ht36ygwatGx56VwCZtlI/2AD15T1X2sjSuGns=
