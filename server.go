@@ -39,6 +39,7 @@ type ServerModule struct {
 	writeChannel chan models.Message
 	nt           *transmission.NetworkTransmissionServer
 	mp           subsystems.MediaPlayerSubsystem
+	nd           *subsystems.NetworkDiscovery
 	signals      *ServerSignalChannels
 }
 
@@ -55,14 +56,26 @@ func NewServerModule() (*ServerModule, error) {
 		writeChannel: serverWriteChannel,
 		nt:           transmission.NewNetworkTransmissionServer(serverWriteChannel, moduleInitChan, moduleCloseChan, serverSignalChannels.commChannels),
 		signals:      serverSignalChannels,
-		// Modules: Add modules here. This is "mp", media_player module
+		// - Modules
+		// 1. mp: Media Player
 		mp: nil,
+		// 2. nd: Network Discovery
+		nd: nil,
 	}, nil
 }
 
 func (s *ServerModule) setup() {
 	// Interrupt will hit this signal, should make everything
 	signal.Notify(s.signals.progSignals, os.Interrupt)
+
+	// -- Network Discovery Module
+	ndVal, ndErr := subsystems.NewNetworkDiscovery()
+	if ndErr != nil {
+		s.logf("NetworkDiscoveryError: %v", ndErr)
+	} else {
+		s.nd = ndVal
+		s.logf("Network Discovery")
+	}
 
 	// -- Setup for any other modules
 }
@@ -144,6 +157,13 @@ func (s *ServerModule) shutdown() {
 	shutDownErr := s.nt.Shutdown(shutdownContext)
 	if shutDownErr != nil {
 		log.Fatalf("server shutdown err: %v", shutDownErr)
+	}
+
+	// -- NETWORK DISCOVERY
+	if s.nd != nil {
+		s.logf("Shutting down Network Discovery")
+		s.nd.Shutdown()
+		s.nd = nil
 	}
 }
 
