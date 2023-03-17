@@ -33,7 +33,12 @@ type NetworkTransmissionServer struct {
 }
 
 // -- CONSTRUCTOR
-func NewNetworkTransmissionServer(writeChannel chan models.Message, moduleInitChan chan []string, moduleCloseChan chan bool, commChannels *comm.CommChannels) *NetworkTransmissionServer {
+func NewNetworkTransmissionServer(
+	writeChannel chan models.Message,
+	moduleInitChan chan []string,
+	moduleCloseChan chan bool,
+	commChannels *comm.CommChannels,
+) *NetworkTransmissionServer {
 	newNT := &NetworkTransmissionServer{
 		init:            false,
 		moduleInitChan:  moduleInitChan,
