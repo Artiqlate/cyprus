@@ -68,13 +68,13 @@ func (s *ServerModule) setup() {
 	// Interrupt will hit this signal, should make everything
 	signal.Notify(s.signals.progSignals, os.Interrupt)
 
-	// -- Network Discovery Module
+	// -- NETWORK DISCOVERY
 	ndVal, ndErr := subsystems.NewNetworkDiscovery()
 	if ndErr != nil {
 		s.logf("NetworkDiscoveryError: %v", ndErr)
 	} else {
 		s.nd = ndVal
-		s.logf("Network Discovery")
+		s.logf("Advertising server capabilities through the network...")
 	}
 
 	// -- Setup for any other modules
