@@ -77,11 +77,11 @@ func (s *ServerModule) setup() {
 	signal.Notify(s.signals.progSignals, os.Interrupt)
 
 	// -- NETWORK DISCOVERY
-	ndVal, ndErr := subsystems.NewNetworkDiscovery()
+	networkDiscoveryModule, ndErr := subsystems.NewNetworkDiscovery()
 	if ndErr != nil {
 		s.logf("NetworkDiscoveryError: %v", ndErr)
 	} else {
-		s.nd = ndVal
+		s.nd = networkDiscoveryModule
 		s.logf("Advertising server capabilities through the network...")
 	}
 
