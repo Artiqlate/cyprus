@@ -24,7 +24,10 @@ type ServerSignalChannels struct {
 	commChannels       *comm.CommChannels
 }
 
-func NewServerSignalChannels(moduleInitChan chan []string, moduleCloseChan chan bool) *ServerSignalChannels {
+func NewServerSignalChannels(
+	moduleInitChan chan []string,
+	moduleCloseChan chan bool,
+) *ServerSignalChannels {
 	return &ServerSignalChannels{
 		moduleInitChannel:  moduleInitChan,
 		moduleCloseChannel: moduleCloseChan,
@@ -54,8 +57,13 @@ func NewServerModule() (*ServerModule, error) {
 	return &ServerModule{
 		logf:         logf,
 		writeChannel: serverWriteChannel,
-		nt:           transmission.NewNetworkTransmissionServer(serverWriteChannel, moduleInitChan, moduleCloseChan, serverSignalChannels.commChannels),
-		signals:      serverSignalChannels,
+		nt: transmission.NewNetworkTransmissionServer(
+			serverWriteChannel,
+			moduleInitChan,
+			moduleCloseChan,
+			serverSignalChannels.commChannels,
+		),
+		signals: serverSignalChannels,
 		// - Modules
 		// 1. mp: Media Player
 		mp: nil,
@@ -82,7 +90,6 @@ func (s *ServerModule) setup() {
 
 func (s *ServerModule) initializeModule(mods []string) []string {
 	enabledModules := []string{}
-	// errorList, statusList := make([]error, len(mods)), make([]bool, len(mods))
 	for _, mod := range mods {
 		// TODO: find a better way to transfer the errors
 		fmt.Printf("Enabling modules: %s\n", mod)
@@ -119,8 +126,6 @@ routineForLoop:
 		case initModule := <-s.signals.moduleInitChannel:
 			initializedModules := s.initializeModule(initModule)
 			s.logf("Initializing Modules : %s\n", initializedModules)
-			// TODO: Pushing to this channel blocks the app. Try fixing this issue here.
-			// s.writeChannel <- models.Message{Method: "rinit", Args: base.NewInitFromArgs(initializedModules)}
 			s.writeChannel <- *base.NewInitWithCapabilities(initializedModules).GenMessage("rinit")
 			continue routineForLoop
 		// Module Close Channel
