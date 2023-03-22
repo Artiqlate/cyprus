@@ -1,5 +1,15 @@
 package cyprus
 
+/**
+Cyprus: Server Application
+
+This is the main server application method that will be run when program is started.
+
+ServerModule is the "main" server structure, and Run() method runs the server.
+
+Copyright (C) 2023 Goutham Krishna K V
+*/
+
 import (
 	"context"
 	"fmt"
@@ -76,7 +86,8 @@ func (s *ServerModule) setup() {
 	// Interrupt will hit this signal, should make everything
 	signal.Notify(s.signals.progSignals, os.Interrupt)
 
-	// -- NETWORK DISCOVERY
+	// -- NETWORK DISCOVERY (this module needs to be set-up on launch so that
+	//	it can be discovered by other devices over the network).
 	networkDiscoveryModule, ndErr := subsystems.NewNetworkDiscovery()
 	if ndErr != nil {
 		s.logf("NetworkDiscoveryError: %v", ndErr)
@@ -95,13 +106,14 @@ func (s *ServerModule) initializeModule(mods []string) []string {
 		fmt.Printf("Enabling modules: %s\n", mod)
 		switch mod {
 		case "mp":
+			// Initialize new media player
 			mPlayer, mPlayerErr := subsystems.NewMediaPlayerSubsystem(&s.signals.commChannels.MPChannel)
 			if mPlayerErr != nil {
 				fmt.Printf("mPlayerErr: %s", mPlayerErr)
 			} else {
 				s.mp = mPlayer
+				// Setup and run coroutine
 				s.mp.Setup()
-				// Run media player coroutine
 				go s.mp.Routine()
 				enabledModules = append(enabledModules, mod)
 			}
@@ -119,6 +131,9 @@ func (s *ServerModule) closeModule() {
 }
 
 func (s *ServerModule) routine() {
+	// -- TRANSMISSION MODULE --
+	go s.nt.Coroutine(s.signals.netTransmissionErr)
+	// INFO: Run other coroutines here
 routineForLoop:
 	for {
 		select {
@@ -175,9 +190,6 @@ func (s *ServerModule) shutdown() {
 func (s *ServerModule) Run() {
 	// -- SETUP
 	s.setup()
-
-	// -- TRANSMISSION MODULE --
-	go s.nt.Coroutine(s.signals.netTransmissionErr)
 
 	// -- RUN ROUTINE
 	s.routine()
