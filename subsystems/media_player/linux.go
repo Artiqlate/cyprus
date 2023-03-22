@@ -181,7 +181,7 @@ func (lmp *LinuxMediaPlayerSubsystem) AddPlayers() error {
 		if metadataErr != nil {
 			lmp.logf("Setup: Metadata for %d (%s): %v", i, mPlayerName, metadataErr)
 		}
-		metadata := mp.MediaPlayerFromMpris(metadataVal)
+		metadata := mp.MetadataFromMPRIS(metadataVal)
 		// Append it to setupStatuses values
 		setupStatuses = append(setupStatuses, mp.Status{
 			Status:   string(plStatus),
@@ -248,7 +248,7 @@ signalLoop:
 					if metadataErr != nil {
 						lmp.logf("Metadata error: %v", metadataErr)
 					}
-					metadata := mp.MediaPlayerFromMpris(metadataVal)
+					metadata := mp.MetadataFromMPRIS(metadataVal)
 					lmp.bidirChannel.OutChannel <- models.Message{
 						Method: "mp:rstatus",
 						Args: &mp.Status{
@@ -267,7 +267,7 @@ signalLoop:
 						lmp.logf("mprisErr: %v", mprisErr)
 						continue signalLoop
 					}
-					mplayerMeta := mp.MediaPlayerFromMpris(metadata)
+					mplayerMeta := mp.MetadataFromMPRIS(metadata)
 					lmp.logf("Metadata: %v", mplayerMeta)
 					lmp.bidirChannel.OutChannel <- models.Message{
 						Method: "mp:metadata",
