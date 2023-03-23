@@ -168,7 +168,7 @@ func (lmp *LinuxMediaPlayerSubsystem) AddPlayer(playerName string, isSetup bool)
 		// Store the players and senders
 		lmp.playerMap[playerName] = player
 		lmp.senderPlayerMap[sender] = playerName
-		newPlayerData, playerDataErr := ext_mp.PlayerDataFromPlayer(player)
+		newPlayerData, playerDataErr := ext_mp.NewPlayerDataFromPlayer(player)
 		if playerDataErr != nil {
 			lmp.logf("AddPlayer: Player data err: %v", playerDataErr)
 		} else {
