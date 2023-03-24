@@ -84,7 +84,7 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 	// Add all subsystem-based methods here
 	case "mp":
 		if !subsystemMethodExists {
-			nt.logf("mp:%s method doesn't exist", method)
+			return fmt.Errorf("mp: method doesn't exist")
 		}
 		// Pass the data directly as the decoder has internal state we don't
 		// want to work with, in other coroutines
@@ -92,14 +92,17 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 			nt.commChannels.MPChannel.InChannel <- data
 		}
 	case "init":
-		init, initErr := ext_models.ProcessInit(nt.wsConn, decoder)
-		if initErr != nil {
-			nt.logf("Ping err: %v\n", initErr)
+		// Block multiple initializations
+		if !nt.init {
+			init, initErr := ext_models.ProcessInit(nt.wsConn, decoder)
+			if initErr != nil {
+				nt.logf("Ping err: %v\n", initErr)
+			}
+			// Send it to main module for processing
+			nt.moduleInitChan <- init.Capabilities
+			nt.init = true
+			nt.logf("Initialized")
 		}
-		// Send it to main module for processing
-		nt.moduleInitChan <- init.Capabilities
-		nt.init = true
-		nt.logf("Initialized")
 	case "close":
 		nt.init = false
 		nt.logf("CLOSE command received from remote. Server Closing")
