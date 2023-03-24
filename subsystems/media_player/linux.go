@@ -2,6 +2,7 @@ package media_player
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"crosine.com/cyprus/utils"
 	"github.com/CrosineEnterprises/ganymede/models"
 	"github.com/CrosineEnterprises/ganymede/models/mp"
+	mp_signals "github.com/CrosineEnterprises/ganymede/models/mp/signals"
 	"github.com/Pauloo27/go-mpris"
 	"github.com/godbus/dbus/v5"
 	"github.com/vmihailenco/msgpack/v5"
@@ -32,7 +34,6 @@ type LinuxMediaPlayerSubsystem struct {
 	playerNames     []string
 	playerMap       map[string]*mpris.Player
 	senderPlayerMap map[string]string
-	playerData      map[string]*mp.PlayerData
 	playerSigChan   chan *dbus.Signal
 }
 
@@ -48,7 +49,6 @@ func NewLinuxMediaPlayerSubsystem(bidirChan *comm.BiDirMessageChannel) *LinuxMed
 		playerNames:     []string{},
 		playerMap:       make(map[string]*mpris.Player),
 		senderPlayerMap: make(map[string]string),
-		playerData:      make(map[string]*mp.PlayerData),
 	}
 }
 
@@ -106,7 +106,6 @@ func (lmp *LinuxMediaPlayerSubsystem) RemovePlayer(playerName string) bool {
 		playerToRemove.Quit()
 		// Delete all values
 		delete(lmp.playerMap, playerName)
-		delete(lmp.playerData, playerName)
 		if !lmp.removeSenderByName(playerName) {
 			lmp.logf("WARN: SenderPlayer sender not found.")
 		}
@@ -168,12 +167,6 @@ func (lmp *LinuxMediaPlayerSubsystem) AddPlayer(playerName string, isSetup bool)
 		// Store the players and senders
 		lmp.playerMap[playerName] = player
 		lmp.senderPlayerMap[sender] = playerName
-		newPlayerData, playerDataErr := ext_mp.NewPlayerDataFromPlayer(player)
-		if playerDataErr != nil {
-			lmp.logf("AddPlayer: Player data err: %v", playerDataErr)
-		} else {
-			lmp.playerData[playerName] = newPlayerData
-		}
 		lmp.playerNames = append(lmp.playerNames, playerName)
 	}
 }
@@ -253,54 +246,57 @@ signalLoop:
 		select {
 		case value := <-lmp.playerSigChan:
 			// Checking if it is DBus variant value
+			if value == nil {
+				continue
+			}
 			switch value.Name {
 			case "org.freedesktop.DBus.Properties.PropertiesChanged":
 				// TODO: Remove all uncessary property reads
 				// Value Properties
-				properties := value.Body[1].(map[string]dbus.Variant)
+				// properties := value.Body[1].(map[string]dbus.Variant)
 				// lmp.logf("Properties: %v", value)
 				playerName, playerExists := lmp.findSender(value.Sender)
 				// TODO: We don't need playerNameIdx, deprecate it.
-				playerNameIdx, _ := lmp.findPlayerName(playerName)
+				playerIdx, playerIdxExists := lmp.findPlayerName(playerName)
 
-				if playerExists {
-					lmp.handlePropertiesChanged(playerName, value)
+				if playerExists && playerIdxExists {
+					lmp.handlePropertiesChanged(playerIdx, playerName, value)
 				}
 				// -- PLAYBACK STATUS --
-				// TODO: Add all fields fields.
-				if playbackStatusProp, ok := properties["PlaybackStatus"]; playerExists && ok {
-					playbackStatus := playbackStatusProp.Value().(string)
-					// lmp.logf("PLAYER %d (%s): STATUS %s", playerNameIdx, playerName, playbackStatus)
-					metadataVal, metadataErr := lmp.playerMap[playerName].GetMetadata()
-					if metadataErr != nil {
-						lmp.logf("Metadata error: %v", metadataErr)
-					}
-					metadata := mp.MetadataFromMPRIS(metadataVal)
-					lmp.bidirChannel.OutChannel <- models.Message{
-						Method: "mp:rstatus",
-						Args: &mp.Status{
-							Status:   playbackStatus,
-							Index:    playerNameIdx,
-							Name:     playerName,
-							Metadata: *metadata,
-						},
-					}
-				}
+				// TODO: Remove all of these uncessary code, also in "apollo".
+				// if playbackStatusProp, ok := properties["PlaybackStatus"]; playerExists && ok {
+				// 	playbackStatus := playbackStatusProp.Value().(string)
+				// 	// lmp.logf("PLAYER %d (%s): STATUS %s", playerNameIdx, playerName, playbackStatus)
+				// 	metadataVal, metadataErr := lmp.playerMap[playerName].GetMetadata()
+				// 	if metadataErr != nil {
+				// 		lmp.logf("Metadata error: %v", metadataErr)
+				// 	}
+				// 	metadata := mp.MetadataFromMPRIS(metadataVal)
+				// 	lmp.bidirChannel.OutChannel <- models.Message{
+				// 		Method: "mp:rstatus",
+				// 		Args: &mp.Status{
+				// 			Status:   playbackStatus,
+				// 			Index:    playerIdx,
+				// 			Name:     playerName,
+				// 			Metadata: *metadata,
+				// 		},
+				// 	}
+				// }
 
-				// -- METADATA STATUS --
-				if metadataProp, ok := properties["Metadata"]; ok {
-					metadata, metadataParsed := metadataProp.Value().(map[string]dbus.Variant)
-					if !metadataParsed {
-						lmp.logf("mprisErr: Metadat Parse Error")
-						continue signalLoop
-					}
-					mplayerMeta := mp.MetadataFromMPRIS(metadata)
-					// lmp.logf("Metadata: %v", mplayerMeta)
-					lmp.bidirChannel.OutChannel <- models.Message{
-						Method: "mp:metadata",
-						Args:   &mplayerMeta,
-					}
-				}
+				// // -- METADATA STATUS --
+				// if metadataProp, ok := properties["Metadata"]; ok {
+				// 	metadata, metadataParsed := metadataProp.Value().(map[string]dbus.Variant)
+				// 	if !metadataParsed {
+				// 		lmp.logf("mprisErr: Metadat Parse Error")
+				// 		continue signalLoop
+				// 	}
+				// 	mplayerMeta := mp.MetadataFromMPRIS(metadata)
+				// 	// lmp.logf("Metadata: %v", mplayerMeta)
+				// 	lmp.bidirChannel.OutChannel <- models.Message{
+				// 		Method: "mp:metadata",
+				// 		Args:   &mplayerMeta,
+				// 	}
+				// }
 
 			case "org.freedesktop.DBus.NameOwnerChanged":
 				// Also send the "create"/"change"/"delete" operation contexts
@@ -319,94 +315,88 @@ signalLoop:
 
 func (lmp *LinuxMediaPlayerSubsystem) handleSeeked(signal *dbus.Signal) {
 	playerName, playerExists := lmp.findSender(signal.Sender)
-	if playerExists {
+	playerIdx, playerIdxExists := lmp.findPlayerName(playerName)
+	if playerExists && playerIdxExists {
 		seekedTime := signal.Body[0].(int64)
-		lmp.logf("Player %s seeked @ time %s", playerName, time.Duration(seekedTime*1000).String())
+		// lmp.logf("Player %s seeked @ time %s", playerName, time.Duration(seekedTime*1000).String())
+		// Send the value to client
+		lmp.bidirChannel.OutChannel <- models.Message{
+			Method: "mp:linux:seeked",
+			Args: &mp_signals.Seeked{
+				PlayerName: playerName,
+				PlayerIdx:  playerIdx,
+				SeekedInUs: seekedTime,
+			},
+		}
 	}
 }
 
 // Property handler for handlePropertiesChanged
-func (lmp *LinuxMediaPlayerSubsystem) parseProperty(playerName string, property map[string]dbus.Variant) {
+func (lmp *LinuxMediaPlayerSubsystem) parseProperty(
+	playerIdx int,
+	playerName string,
+	property map[string]dbus.Variant,
+) error {
 	for propKey, propValue := range property {
 		switch propKey {
 		case "PlaybackStatus":
 			newPlaybackStatus, psParseError := ext_mp.ParsePlaybackStatus(propValue.Value().(string))
 			if psParseError != nil {
-				lmp.logf("signalLoop>handlePropertiesChanged>parseProperty: %v", psParseError)
-			} else {
-				if lmpPlayerData, playerDataExists := lmp.playerData[playerName]; playerDataExists {
-					newPosition, posError := lmp.playerMap[playerName].GetPosition()
-					if posError != nil {
-						lmp.logf("PosErr: %s", posError)
-					} else {
-						lmpPlayerData.Position = int64(newPosition)
-					}
-				}
+				return psParseError
 			}
-			lmp.logf("Playback Status Updated: %s", newPlaybackStatus)
+			lmp.logf("Player %d (%s): %s", playerIdx, playerName, newPlaybackStatus)
+
+			// Decode on whether you need more data/context to be sent in this data-structure.
+			lmp.bidirChannel.OutChannel <- models.Message{
+				Method: "mp:linux:psu",
+				Args: &mp_signals.PlaybackStatusChanged{
+					PlayerIndex:    playerIdx,
+					PlayerName:     playerName,
+					PlaybackStatus: newPlaybackStatus,
+				},
+			}
 		case "Metadata":
-			if lmpPlayerData, playerDataExists := lmp.playerData[playerName]; playerDataExists {
-				newPosition, posError := lmp.playerMap[playerName].GetPosition()
-				if posError != nil {
-					lmp.logf("PosErr: %s", posError)
-				} else {
-					lmpPlayerData.Position = int64(newPosition)
-				}
-				lmpPlayerData.Metadata = mp.MetadataFromMPRIS(propValue.Value().(map[string]dbus.Variant))
+			metadataVariant, metadataGetErr := lmp.playerMap[playerName].GetMetadata()
+			if metadataGetErr != nil {
+				return metadataGetErr
+			}
+			metadata := mp.MetadataFromMPRIS(metadataVariant)
+			lmp.bidirChannel.OutChannel <- models.Message{
+				Method: "mp:linux:mu", // "mu" == "metadata updated"
+				Args: &mp_signals.MetadataChanged{
+					PlayerIndex: playerIdx,
+					PlayerName:  playerName,
+					Metadata:    metadata,
+				},
 			}
 		default:
-			lmp.logf("Other: KEY(%s): %s", propKey, propValue)
+			return fmt.Errorf("key not found: KEY(%s): %s", propKey, propValue)
 		}
 	}
-	// if playbackStatusProp, psExists := property["PlaybackStatus"]; psExists {
-	// 	newPlaybackStatus, psParseError := ext_mp.ParsePlaybackStatus(playbackStatusProp.Value().(string))
-	// 	if psParseError != nil {
-	// 		lmp.logf("signalLoop>handlePropertiesChanged>parseProperty: %v", psParseError)
-	// 	} else {
-	// 		if lmpPlayerData, playerDataExists := lmp.playerData[playerName]; playerDataExists {
-	// 			newPosition, posError := lmp.playerMap[playerName].GetPosition()
-	// 			if posError != nil {
-	// 				lmp.logf("PosErr: %s", posError)
-	// 			} else {
-	// 				lmpPlayerData.Position = int64(newPosition)
-	// 			}
-	// 		}
-	// 	}
-	// 	lmp.logf("Playback Status Updated: %s", newPlaybackStatus)
-	// } else if metadataProp, metadataExists := property["Metadata"]; metadataExists {
-	// 	lmp.logf("Metadata Updated")
-	// 	if lmpPlayerData, playerDataExists := lmp.playerData[playerName]; playerDataExists {
-	// 		newPosition, posError := lmp.playerMap[playerName].GetPosition()
-	// 		if posError != nil {
-	// 			lmp.logf("PosErr: %s", posError)
-	// 		} else {
-	// 			lmpPlayerData.Position = int64(newPosition)
-	// 		}
-	// 		lmpPlayerData.Metadata = mp.MetadataFromMPRIS(metadataProp.Value().(map[string]dbus.Variant))
-	// 	}
-	// } else {
-	// 	lmp.logf("Other Property: ", property)
-	// }
+	return nil
 }
 
 // This method handles "PropertiesChanged", like metadata or playback status change.
-func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(playerName string, signal *dbus.Signal) {
-	// Go through each signal Body element
-	for i, signalProp := range signal.Body {
-		if i == 0 {
-			lmp.logf("Player: %s", playerName)
-		} else {
-			if property, propertyExists := signalProp.(map[string]dbus.Variant); propertyExists {
-				lmp.parseProperty(playerName, property)
-			} else if strVal, strExists := signalProp.([]string); strExists {
-				// An empty list of strings, signals end of the list, so
-				// continue/break-off can be done here.
-				if len(strVal) == 0 {
-					continue
-				}
+func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(
+	playerIdx int,
+	playerName string,
+	signal *dbus.Signal,
+) error {
+	// signal.Body[0] = "org.mpris.MediaPlayer2.Player", representing interface
+	// name. Ignore that value.
+	for _, signalProp := range signal.Body[1:] {
+		// Two kinds of value for signal body value are expected here:
+		// 1. map[string]dbus.Variant
+		// 2. []string
+		// We only need the first one, ignore the second one.
+		if property, propertyExists := signalProp.(map[string]dbus.Variant); propertyExists {
+			parseErr := lmp.parseProperty(playerIdx, playerName, property)
+			if parseErr != nil {
+				return parseErr
 			}
 		}
 	}
+	return nil
 }
 
 // This handles "org.freedesktop.DBus.NameOwnerChanged", for seeing the owner
@@ -420,20 +410,21 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 	oldValue := busSignal.Body[1].(string)
 	newValue := busSignal.Body[2].(string)
 
-	// NOTE: ABOUT SIGNALS HERE
+	// ---- NOTE ABOUT **SIGNALS** ----
 	// 	There's 3 arguments here. Each argument describes something.
 	// 	Every change is represented by values in `NameOwnerChanged` signal.
 	//	Arg 0: Media Player Name (org.mpris.MediaPlayer2.spotify).
 	//	Arg 1: "Old Value" (oldValue).
 	//	Arg 2: "New Value" (newValue).
 	//	-- TYPES OF CHANGES --
-	//	- If `oldValue` == "" and `newValue` != "", that means a new player has
-	// 	  been added (PLAYER ADDED).
-	//	- If `oldValue` != "" and `newValue` == "", that means a player has been
-	//	  removed (PLAYER REMOVED).
-	//	- If `oldValue` != "" and `newValue` != "", that means there had been
-	//	  changes in the player, needs to be reset (PLAYER RESET).
-	// IF PLAYER IS BEING ADDED
+	// Table shows value emptiness (empty string or "" is ❎, non-empty is ✅).
+	// +----------+----------+---------------+
+	// | OldValue | NewValue |     Change    |
+	// +----------+----------+---------------+
+	// |    ❎    |    ✅    | Create Player |
+	// |    ✅    |    ❎    | Remove Player |
+	// |  	✅    |    ✅    | Update Player |
+	// +----------+----------+---------------+
 	if oldValue == "" {
 		lmp.AddPlayer(playerName, false)
 		lmp.logf("Player Added: %s", playerName)
