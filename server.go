@@ -27,6 +27,7 @@ import (
 
 // Default server port
 const DefaultPort = 3969
+const DefaultInsecurePort = 3970
 
 type ServerSignalChannels struct {
 	moduleInitChannel  chan []string
@@ -50,6 +51,7 @@ func NewServerSignalChannels(
 }
 
 type ServerModule struct {
+	secure       bool
 	serverPort   int
 	logf         func(string, ...interface{})
 	writeChannel chan models.Message
@@ -59,7 +61,7 @@ type ServerModule struct {
 	signals      *ServerSignalChannels
 }
 
-func NewServerModule(port int) (*ServerModule, error) {
+func NewServerModule(port int, secure bool) (*ServerModule, error) {
 	moduleInitChan := make(chan []string, 20)
 	moduleCloseChan := make(chan bool)
 	serverWriteChannel := make(chan models.Message)
@@ -67,11 +69,17 @@ func NewServerModule(port int) (*ServerModule, error) {
 	logf := func(s string, i ...interface{}) {
 		utils.LogFunc("SRV", s, i...)
 	}
+	// Default port values (and security options)
 	if port == 0 {
-		logf("Default port value requested. Port = %d", DefaultPort)
-		port = DefaultPort
+		if secure {
+			port = DefaultPort
+		} else {
+			port = DefaultInsecurePort
+		}
 	}
+	logf("Port: %d Secure: %v", port, secure)
 	return &ServerModule{
+		secure:       secure,
 		serverPort:   port,
 		logf:         logf,
 		writeChannel: serverWriteChannel,
@@ -97,7 +105,7 @@ func (s *ServerModule) setup() {
 
 	// -- NETWORK DISCOVERY (this module needs to be set-up on launch so that
 	//	it can be discovered by other devices over the network).
-	networkDiscoveryModule, ndErr := subsystems.NewNetworkDiscovery(s.serverPort)
+	networkDiscoveryModule, ndErr := subsystems.NewNetworkDiscovery(s.serverPort, s.secure)
 	if ndErr != nil {
 		s.logf("NetworkDiscoveryError: %v", ndErr)
 	} else {
@@ -141,7 +149,7 @@ func (s *ServerModule) closeModule() {
 	// Network Discovery
 	if s.nd == nil {
 		s.logf("Restarting NetworkDiscovery")
-		ndServer, ndServErr := subsystems.NewNetworkDiscovery(s.serverPort)
+		ndServer, ndServErr := subsystems.NewNetworkDiscovery(s.serverPort, s.secure)
 		if ndServErr != nil {
 			s.logf("closeModule(networkDiscovery) Error: %v", ndServErr)
 		} else {
@@ -152,7 +160,7 @@ func (s *ServerModule) closeModule() {
 
 func (s *ServerModule) routine() {
 	// -- TRANSMISSION MODULE --
-	go s.nt.Coroutine(s.signals.netTransmissionErr)
+	go s.nt.Coroutine(s.signals.netTransmissionErr, s.secure)
 	// Stop Network discovery as soon as connection is established.
 routineForLoop:
 	for {

@@ -1,7 +1,6 @@
 package transmission
 
 import (
-	"log"
 	"net"
 )
 
@@ -38,6 +37,6 @@ func getAvailableIPAddresses() ([]net.IP, error) {
 			availableIpAddresses = append(availableIpAddresses, ip.IP)
 		}
 	}
-	log.Printf("Available IP Addresses: %s", availableIpAddresses)
+	// log.Printf("Available IP Addresses: %s", availableIpAddresses)
 	return availableIpAddresses, nil
 }

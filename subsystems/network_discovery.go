@@ -1,6 +1,10 @@
 package subsystems
 
-import "github.com/grandcat/zeroconf"
+import (
+	"fmt"
+
+	"github.com/grandcat/zeroconf"
+)
 
 const (
 	InstanceName = "Cyprus"
@@ -12,7 +16,7 @@ type NetworkDiscovery struct {
 	server *zeroconf.Server
 }
 
-func NewNetworkDiscovery(port int) (*NetworkDiscovery, error) {
+func NewNetworkDiscovery(port int, secure bool) (*NetworkDiscovery, error) {
 	zcServer, registerErr := zeroconf.Register(
 		InstanceName,
 		Service,
@@ -20,7 +24,7 @@ func NewNetworkDiscovery(port int) (*NetworkDiscovery, error) {
 		port,
 		// TODO: Instead of sending some random values, send some useful
 		// 	information here.
-		[]string{"txtv=0", "lo=1", "la=2"},
+		[]string{"txtv=0", "lo=1", "la=2", fmt.Sprintf("secure=%t", secure)},
 		nil,
 	)
 	if registerErr != nil {

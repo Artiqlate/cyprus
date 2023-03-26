@@ -58,9 +58,9 @@ func NewNetworkTransmissionServer(
 }
 
 // -- COROUTINE FOR SERVER
-func (nt *NetworkTransmissionServer) Coroutine(errChan chan error) {
+func (nt *NetworkTransmissionServer) Coroutine(errChan chan error, secure bool) {
 	nt.logf("Attempting to start server")
-	errChan <- nt.Serve()
+	errChan <- nt.Serve(secure)
 }
 
 // -- DATA DECODE AND PARSING
@@ -129,24 +129,29 @@ func (nt *NetworkTransmissionServer) write(msgData models.Message) error {
 // -- HTTP SPECIFIC --
 
 // -- Start Server
-func (nt *NetworkTransmissionServer) Serve() error {
-	ipAddress, ipAddrErr := getAvailableIPAddresses()
-	if ipAddrErr != nil {
-		return ipAddrErr
-	}
-	tlsConfig, tlsConfigErr := network.GenerateTLSConfig(ipAddress)
-	if tlsConfigErr != nil {
-		return tlsConfigErr
-	}
+func (nt *NetworkTransmissionServer) Serve(secure bool) error {
+	// Generic server
 	nt.httpServer = &http.Server{
 		Handler:      &nt.serveMux,
 		Addr:         fmt.Sprintf(":%d", nt.serverPort),
 		ReadTimeout:  time.Second * 10,
 		WriteTimeout: time.Second * 10,
-		TLSConfig:    tlsConfig,
 	}
-
-	return nt.httpServer.ListenAndServeTLS("", "")
+	if secure {
+		// Add TLS Configuration for Security
+		ipAddress, ipAddrErr := getAvailableIPAddresses()
+		if ipAddrErr != nil {
+			return ipAddrErr
+		}
+		tlsConfig, tlsConfigErr := network.GenerateTLSConfig(ipAddress)
+		if tlsConfigErr != nil {
+			return tlsConfigErr
+		}
+		nt.httpServer.TLSConfig = tlsConfig
+		return nt.httpServer.ListenAndServeTLS("", "")
+	} else {
+		return nt.httpServer.ListenAndServe()
+	}
 }
 
 // -- Shutdown Server
