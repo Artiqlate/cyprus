@@ -54,7 +54,7 @@ func NewLinuxMediaPlayerSubsystem(bidirChan *comm.BiDirMessageChannel) *LinuxMed
 	}
 }
 
-// -- Some utility methods, for finding, and removal of specific data
+// -- Utility Methods
 
 func (lmp *LinuxMediaPlayerSubsystem) findPlayerName(player string) (int, bool) {
 	for i, val := range lmp.playerNames {
@@ -183,7 +183,6 @@ func (lmp *LinuxMediaPlayerSubsystem) AddPlayers() error {
 	}
 	var setupStatuses []mp.Status
 	for i, mPlayerName := range mediaPlayerNames {
-		// Add Player
 		lmp.AddPlayer(mPlayerName, true)
 		// Get playback status
 		plStatus, statusErr := lmp.playerMap[mPlayerName].GetPlaybackStatus()
@@ -233,44 +232,33 @@ func (lmp *LinuxMediaPlayerSubsystem) Setup() error {
 	}
 	// Add the currently alive players @ launch.
 	lmp.AddPlayers()
-	// Wire DBus signals to Go Signals
+	// Bind DBus singal
 	lmp.bus.Signal(lmp.playerSigChan)
-	// Assign the signal destination
 	lmp.logf("Players + Senders added: %d", len(lmp.playerNames))
 	return nil
 }
 
 func (lmp *LinuxMediaPlayerSubsystem) SignalLoop() {
-	// Start the singal loop
 	lmp.logf("SignalLoop: start")
 signalLoop:
 	for {
 		select {
 		case value := <-lmp.playerSigChan:
-			// Checking if it is DBus variant value
 			if value == nil {
+				lmp.logf("Warning: DBus signal being sent is 'nil'")
 				continue signalLoop
 			}
 			switch value.Name {
 			case "org.freedesktop.DBus.Properties.PropertiesChanged":
-				// TODO: Remove all uncessary property reads
-				// Value Properties
-				// properties := value.Body[1].(map[string]dbus.Variant)
-				// lmp.logf("Properties: %v", value)
-				playerName, playerExists := lmp.findSender(value.Sender)
-				// TODO: We don't need playerNameIdx, deprecate it.
-				playerIdx, playerIdxExists := lmp.findPlayerName(playerName)
-
-				if playerExists && playerIdxExists {
-					lmp.handlePropertiesChanged(playerIdx, playerName, value)
-				}
+				lmp.handlePropertiesChanged(value)
 			case "org.freedesktop.DBus.NameOwnerChanged":
-				// Also send the "create"/"change"/"delete" operation contexts
-				// to the client also, or at least work on implementing the same.
 				lmp.handleNameOwnerChanged(value)
-			default:
+			case "org.mpris.MediaPlayer2.Player.Seeked":
 				lmp.handleSeeked(value)
+			default:
+				lmp.logf("WARNING: MPRIS Signal")
 			}
+		// if need to break loop (produced by Close).
 		case <-lmp.signalLoopBreak:
 			break signalLoop
 		}
@@ -343,22 +331,23 @@ func (lmp *LinuxMediaPlayerSubsystem) parseProperty(
 }
 
 // This method handles "PropertiesChanged", like metadata or playback status change.
-func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(
-	playerIdx int,
-	playerName string,
-	signal *dbus.Signal,
-) error {
+func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signal) error {
+	playerName, playerExists := lmp.findSender(signal.Sender)
+	playerIdx, playerIdxExists := lmp.findPlayerName(playerName)
+
 	// signal.Body[0] = "org.mpris.MediaPlayer2.Player", representing interface
 	// name. Ignore that value.
-	for _, signalProp := range signal.Body[1:] {
-		// Two kinds of value for signal body value are expected here:
-		// 1. map[string]dbus.Variant
-		// 2. []string
-		// We only need the first one, ignore the second one.
-		if property, propertyExists := signalProp.(map[string]dbus.Variant); propertyExists {
-			parseErr := lmp.parseProperty(playerIdx, playerName, property)
-			if parseErr != nil {
-				return parseErr
+	if playerExists && playerIdxExists {
+		for _, signalProp := range signal.Body[1:] {
+			// Two kinds of value for signal body value are expected here:
+			// 1. map[string]dbus.Variant
+			// 2. []string
+			// We only need the first one, ignore the second one.
+			if property, propertyExists := signalProp.(map[string]dbus.Variant); propertyExists {
+				parseErr := lmp.parseProperty(playerIdx, playerName, property)
+				if parseErr != nil {
+					return parseErr
+				}
 			}
 		}
 	}
@@ -391,6 +380,9 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 	// |    ✅    |    ❎    | Remove Player |
 	// |  	✅    |    ✅    | Update Player |
 	// +----------+----------+---------------+
+
+	// Also send the "create"/"change"/"remove" operation contexts
+	// to the client also, or at least work on implementing the same.
 	if oldValue == "" {
 		lmp.AddPlayer(playerName, false)
 		lmp.logf("Player Added: %s", playerName)
