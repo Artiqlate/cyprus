@@ -12,7 +12,6 @@ Copyright (C) 2023 Goutham Krishna K V
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -25,6 +24,9 @@ import (
 	"github.com/CrosineEnterprises/ganymede/models"
 	"github.com/CrosineEnterprises/ganymede/models/base"
 )
+
+// Default server port
+const DefaultPort = 3969
 
 type ServerSignalChannels struct {
 	moduleInitChannel  chan []string
@@ -48,6 +50,7 @@ func NewServerSignalChannels(
 }
 
 type ServerModule struct {
+	serverPort   int
 	logf         func(string, ...interface{})
 	writeChannel chan models.Message
 	nt           *transmission.NetworkTransmissionServer
@@ -56,7 +59,7 @@ type ServerModule struct {
 	signals      *ServerSignalChannels
 }
 
-func NewServerModule() (*ServerModule, error) {
+func NewServerModule(port int) (*ServerModule, error) {
 	moduleInitChan := make(chan []string, 20)
 	moduleCloseChan := make(chan bool)
 	serverWriteChannel := make(chan models.Message)
@@ -64,7 +67,12 @@ func NewServerModule() (*ServerModule, error) {
 	logf := func(s string, i ...interface{}) {
 		utils.LogFunc("SRV", s, i...)
 	}
+	if port == 0 {
+		logf("Default port value requested. Port = %d", DefaultPort)
+		port = DefaultPort
+	}
 	return &ServerModule{
+		serverPort:   port,
 		logf:         logf,
 		writeChannel: serverWriteChannel,
 		nt: transmission.NewNetworkTransmissionServer(
@@ -72,6 +80,7 @@ func NewServerModule() (*ServerModule, error) {
 			moduleInitChan,
 			moduleCloseChan,
 			serverSignalChannels.commChannels,
+			port,
 		),
 		signals: serverSignalChannels,
 		// - Modules
@@ -88,7 +97,7 @@ func (s *ServerModule) setup() {
 
 	// -- NETWORK DISCOVERY (this module needs to be set-up on launch so that
 	//	it can be discovered by other devices over the network).
-	networkDiscoveryModule, ndErr := subsystems.NewNetworkDiscovery()
+	networkDiscoveryModule, ndErr := subsystems.NewNetworkDiscovery(s.serverPort)
 	if ndErr != nil {
 		s.logf("NetworkDiscoveryError: %v", ndErr)
 	} else {
@@ -103,13 +112,13 @@ func (s *ServerModule) initializeModule(mods []string) []string {
 	enabledModules := []string{}
 	for _, mod := range mods {
 		// TODO: find a better way to transfer the errors
-		fmt.Printf("Enabling modules: %s\n", mod)
+		s.logf("Enabling modules: %s\n", mod)
 		switch mod {
 		case "mp":
 			// Initialize new media player
 			mPlayer, mPlayerErr := subsystems.NewMediaPlayerSubsystem(&s.signals.commChannels.MPChannel)
 			if mPlayerErr != nil {
-				fmt.Printf("mPlayerErr: %s", mPlayerErr)
+				s.logf("mPlayerErr: %s", mPlayerErr)
 			} else {
 				s.mp = mPlayer
 				// Setup and run coroutine
@@ -125,15 +134,26 @@ func (s *ServerModule) initializeModule(mods []string) []string {
 func (s *ServerModule) closeModule() {
 	// -- MEDIA PLAYER
 	if s.mp != nil {
+		s.logf("Stopping MediaPlayer")
 		s.mp.Shutdown()
 		s.mp = nil
+	}
+	// Network Discovery
+	if s.nd == nil {
+		s.logf("Restarting NetworkDiscovery")
+		ndServer, ndServErr := subsystems.NewNetworkDiscovery(s.serverPort)
+		if ndServErr != nil {
+			s.logf("closeModule(networkDiscovery) Error: %v", ndServErr)
+		} else {
+			s.nd = ndServer
+		}
 	}
 }
 
 func (s *ServerModule) routine() {
 	// -- TRANSMISSION MODULE --
 	go s.nt.Coroutine(s.signals.netTransmissionErr)
-	// INFO: Run other coroutines here
+	// Stop Network discovery as soon as connection is established.
 routineForLoop:
 	for {
 		select {
@@ -142,6 +162,12 @@ routineForLoop:
 			initializedModules := s.initializeModule(initModule)
 			s.logf("Initializing Modules : %s\n", initializedModules)
 			s.writeChannel <- *base.NewInitWithCapabilities(initializedModules).GenMessage("rinit")
+			// Stop network discovery so nobody else can see this server after connection
+			if s.nd != nil {
+				s.logf("Stopping Network Discovery")
+				s.nd.Shutdown()
+				s.nd = nil
+			}
 			continue routineForLoop
 		// Module Close Channel
 		case <-s.signals.moduleCloseChannel:

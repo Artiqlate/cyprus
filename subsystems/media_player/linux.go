@@ -3,19 +3,21 @@ package media_player
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
+	// 3rd party imports
+	"github.com/Pauloo27/go-mpris"
+	"github.com/godbus/dbus/v5"
+	"github.com/vmihailenco/msgpack/v5"
+
+	// 1st party imports
 	"crosine.com/cyprus/comm"
 	ext_mp "crosine.com/cyprus/ext_models/mp"
 	"crosine.com/cyprus/utils"
 	"github.com/CrosineEnterprises/ganymede/models"
 	"github.com/CrosineEnterprises/ganymede/models/mp"
 	mp_signals "github.com/CrosineEnterprises/ganymede/models/mp/signals"
-	"github.com/Pauloo27/go-mpris"
-	"github.com/godbus/dbus/v5"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 const (
@@ -39,8 +41,8 @@ type LinuxMediaPlayerSubsystem struct {
 
 func NewLinuxMediaPlayerSubsystem(bidirChan *comm.BiDirMessageChannel) *LinuxMediaPlayerSubsystem {
 	return &LinuxMediaPlayerSubsystem{
-		logf: func(s string, i ...interface{}) {
-			log.Printf("MP: "+s, i...)
+		logf: func(f string, v ...interface{}) {
+			utils.LogFunc("MPL", f, v...)
 		},
 		bidirChannel:    bidirChan,
 		signalLoopBreak: make(chan bool, 1),
@@ -247,7 +249,7 @@ signalLoop:
 		case value := <-lmp.playerSigChan:
 			// Checking if it is DBus variant value
 			if value == nil {
-				continue
+				continue signalLoop
 			}
 			switch value.Name {
 			case "org.freedesktop.DBus.Properties.PropertiesChanged":
@@ -262,42 +264,6 @@ signalLoop:
 				if playerExists && playerIdxExists {
 					lmp.handlePropertiesChanged(playerIdx, playerName, value)
 				}
-				// -- PLAYBACK STATUS --
-				// TODO: Remove all of these uncessary code, also in "apollo".
-				// if playbackStatusProp, ok := properties["PlaybackStatus"]; playerExists && ok {
-				// 	playbackStatus := playbackStatusProp.Value().(string)
-				// 	// lmp.logf("PLAYER %d (%s): STATUS %s", playerNameIdx, playerName, playbackStatus)
-				// 	metadataVal, metadataErr := lmp.playerMap[playerName].GetMetadata()
-				// 	if metadataErr != nil {
-				// 		lmp.logf("Metadata error: %v", metadataErr)
-				// 	}
-				// 	metadata := mp.MetadataFromMPRIS(metadataVal)
-				// 	lmp.bidirChannel.OutChannel <- models.Message{
-				// 		Method: "mp:rstatus",
-				// 		Args: &mp.Status{
-				// 			Status:   playbackStatus,
-				// 			Index:    playerIdx,
-				// 			Name:     playerName,
-				// 			Metadata: *metadata,
-				// 		},
-				// 	}
-				// }
-
-				// // -- METADATA STATUS --
-				// if metadataProp, ok := properties["Metadata"]; ok {
-				// 	metadata, metadataParsed := metadataProp.Value().(map[string]dbus.Variant)
-				// 	if !metadataParsed {
-				// 		lmp.logf("mprisErr: Metadat Parse Error")
-				// 		continue signalLoop
-				// 	}
-				// 	mplayerMeta := mp.MetadataFromMPRIS(metadata)
-				// 	// lmp.logf("Metadata: %v", mplayerMeta)
-				// 	lmp.bidirChannel.OutChannel <- models.Message{
-				// 		Method: "mp:metadata",
-				// 		Args:   &mplayerMeta,
-				// 	}
-				// }
-
 			case "org.freedesktop.DBus.NameOwnerChanged":
 				// Also send the "create"/"change"/"delete" operation contexts
 				// to the client also, or at least work on implementing the same.

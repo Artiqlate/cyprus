@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	serv, servErr := cyprus.NewServerModule()
+	serv, servErr := cyprus.NewServerModule(0)
 	if servErr != nil {
 		log.Fatalf("Server erorr: %v", servErr)
 	}

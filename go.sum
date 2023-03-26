@@ -32,6 +32,8 @@ github.com/CrosineEnterprises/ganymede v0.0.0-20230324133617-ff208fa618f7 h1:yAN
 github.com/CrosineEnterprises/ganymede v0.0.0-20230324133617-ff208fa618f7/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
 github.com/CrosineEnterprises/ganymede v0.0.0-20230324140950-0cc7089ba633 h1:yR4LsD0OOyFtlgajH8VUf/XnYwfmk4LGrLtg77AMXt0=
 github.com/CrosineEnterprises/ganymede v0.0.0-20230324140950-0cc7089ba633/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
+github.com/CrosineEnterprises/ganymede v0.0.0-20230325093402-31c01344aab2 h1:nM4do6l1I4hYuswvTvSnOSTwbjy/xGNOnfQFcnffzfo=
+github.com/CrosineEnterprises/ganymede v0.0.0-20230325093402-31c01344aab2/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
 github.com/Pauloo27/go-mpris v1.4.0 h1:KWNTZuXeOdOdIVdzwG/JOOZHlveNiMjiSaK0AWi220c=
 github.com/Pauloo27/go-mpris v1.4.0/go.mod h1:+9otYxTLPRTVZ6i2k6VrG1Y0RzMbBXGuEUQM4ZSvjxU=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=

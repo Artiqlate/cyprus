@@ -4,23 +4,25 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"crosine.com/cyprus/comm"
 	"crosine.com/cyprus/ext_models"
+	"crosine.com/cyprus/utils"
 	"github.com/CrosineEnterprises/ganymede/models"
+	"github.com/CrosineEnterprises/ganymede/network"
 	"github.com/vmihailenco/msgpack/v5"
 	"nhooyr.io/websocket"
 )
 
-// TODO: MOVE TO GANYMEDE, SUBJECT TO CHANGE
-const DEFAULT_PORT = 8000
-
 type NetworkTransmissionServer struct {
-	init            bool
+	// Server Initialization
+	init bool
+	// Port given to listen to
+	serverPort int
+	// Initialization channel
 	moduleInitChan  chan []string
 	moduleCloseChan chan bool
 	context         context.Context
@@ -38,14 +40,18 @@ func NewNetworkTransmissionServer(
 	moduleInitChan chan []string,
 	moduleCloseChan chan bool,
 	commChannels *comm.CommChannels,
+	port int,
 ) *NetworkTransmissionServer {
 	newNT := &NetworkTransmissionServer{
 		init:            false,
+		serverPort:      port,
 		moduleInitChan:  moduleInitChan,
 		moduleCloseChan: moduleCloseChan,
 		commChannels:    commChannels,
 		writeChannel:    writeChannel,
-		logf:            log.Printf,
+		logf: func(f string, v ...interface{}) {
+			utils.LogFunc("NT", f, v...)
+		},
 	}
 	newNT.serveMux.HandleFunc("/", newNT.WebsocketHandler)
 	return newNT
@@ -66,12 +72,11 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 	arrLen, arrLenErr := decoder.DecodeArrayLen()
 	if arrLenErr != nil {
 		return arrLenErr
-	}
-	if arrLen < 2 {
+	} else if arrLen < 2 {
+		// TODO: Remove
 		nt.logf("WARN: Method only, no arguments")
 	}
 
-	// Command must be the first element
 	methodAndSubsystem, msDecodeErr := decoder.DecodeString()
 	if msDecodeErr != nil {
 		nt.logf("method decode: %v", msDecodeErr)
@@ -81,16 +86,6 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 	nt.logf("Subsystem: %s, Method: %s\n", subsystem, method)
 
 	switch subsystem {
-	// Add all subsystem-based methods here
-	case "mp":
-		if !subsystemMethodExists {
-			return fmt.Errorf("mp: method doesn't exist")
-		}
-		// Pass the data directly as the decoder has internal state we don't
-		// want to work with, in other coroutines
-		if nt.init {
-			nt.commChannels.MPChannel.InChannel <- data
-		}
 	case "init":
 		// Block multiple initializations
 		if !nt.init {
@@ -102,6 +97,14 @@ func (nt *NetworkTransmissionServer) decodeData(data []byte) error {
 			nt.moduleInitChan <- init.Capabilities
 			nt.init = true
 			nt.logf("Initialized")
+		}
+	// Add all subsystem-based methods here
+	case "mp":
+		if !subsystemMethodExists {
+			return fmt.Errorf("mp: method doesn't exist")
+		}
+		if nt.init {
+			nt.commChannels.MPChannel.InChannel <- data
 		}
 	case "close":
 		nt.init = false
@@ -127,14 +130,23 @@ func (nt *NetworkTransmissionServer) write(msgData models.Message) error {
 
 // -- Start Server
 func (nt *NetworkTransmissionServer) Serve() error {
+	ipAddress, ipAddrErr := getAvailableIPAddresses()
+	if ipAddrErr != nil {
+		return ipAddrErr
+	}
+	tlsConfig, tlsConfigErr := network.GenerateTLSConfig(ipAddress)
+	if tlsConfigErr != nil {
+		return tlsConfigErr
+	}
 	nt.httpServer = &http.Server{
 		Handler:      &nt.serveMux,
-		Addr:         fmt.Sprintf(":%d", DEFAULT_PORT),
+		Addr:         fmt.Sprintf(":%d", nt.serverPort),
 		ReadTimeout:  time.Second * 10,
 		WriteTimeout: time.Second * 10,
+		TLSConfig:    tlsConfig,
 	}
 
-	return nt.httpServer.ListenAndServe()
+	return nt.httpServer.ListenAndServeTLS("", "")
 }
 
 // -- Shutdown Server
@@ -203,7 +215,7 @@ func (nt *NetworkTransmissionServer) WebsocketHandler(w http.ResponseWriter, req
 func (nt *NetworkTransmissionServer) readLoop() error {
 	for {
 		_, data, readErr := nt.wsConn.Read(nt.context)
-		nt.logf("readLoop:DATA: %x", data)
+		// nt.logf("readLoop:DATA: %x", data)
 		if readErr != nil {
 			if websocket.CloseStatus(readErr) == websocket.StatusNormalClosure ||
 				websocket.CloseStatus(readErr) == websocket.StatusGoingAway {
