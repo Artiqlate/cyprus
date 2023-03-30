@@ -203,6 +203,7 @@ func (lmp *LinuxMediaPlayerSubsystem) AddPlayers() error {
 			Name:     mPlayerName,
 			Metadata: *metadata,
 		})
+		// TODO: Change this to `mp:init`, and move this to `Setup()`
 		lmp.bidirChannel.OutChannel <- models.Message{
 			Method: "mp:rsetup_metadata",
 			Args: &mp.SetupStatus{
@@ -430,8 +431,8 @@ lmpForRoutine:
 			case "close":
 				break lmpForRoutine
 			case "list":
-				// Throw the error our, it's always nil (might change depending on
-				// platform, but not required in Linux).
+				// Throw the error our, it's always nil (might change depending
+				// on platform, but not required in Linux).
 				players, _ := l.ListPlayers()
 				l.logf("Players: %s", players)
 				l.bidirChannel.OutChannel <- models.Message{
