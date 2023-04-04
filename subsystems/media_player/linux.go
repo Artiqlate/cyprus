@@ -112,8 +112,8 @@ func (lmp *LinuxMediaPlayerSubsystem) removePlayerVals(playerName string) {
 // -- PLAYER METHODS --
 
 // - List Players
-func (l *LinuxMediaPlayerSubsystem) ListPlayers() ([]string, error) {
-	return l.playerNames, nil
+func (lmp *LinuxMediaPlayerSubsystem) ListPlayers() ([]string, error) {
+	return lmp.playerNames, nil
 }
 
 // - Remove Player
@@ -347,6 +347,7 @@ func (lmp *LinuxMediaPlayerSubsystem) parseProperty(
 func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signal) error {
 	// signal.Body[0] = "org.mpris.MediaPlayer2.Player", representing interface
 	// name. Ignore that value.
+	lmp.logf("Signal: %+v", signal.Body)
 	playerName, playerIdx, playerExists := lmp.findPlayerAndIdx(signal)
 	if playerExists {
 		for _, signalProp := range signal.Body[1:] {
@@ -406,34 +407,34 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 	}
 }
 
-func (l *LinuxMediaPlayerSubsystem) Routine() {
-	l.logf("Routine: starting")
-	if l.bidirChannel.InChannel == nil || l.bidirChannel.OutChannel == nil {
+func (lmp *LinuxMediaPlayerSubsystem) Routine() {
+	lmp.logf("Routine: starting")
+	if lmp.bidirChannel.InChannel == nil || lmp.bidirChannel.OutChannel == nil {
 		return
 	}
 	// Run the signal loop to send the change events to client.
-	go l.SignalLoop()
+	go lmp.SignalLoop()
 	// Run the routine to pass in commands to validate values
 lmpForRoutine:
 	for {
 		select {
-		case readData := <-l.bidirChannel.InChannel:
+		case readData := <-lmp.bidirChannel.InChannel:
 			// This read channel will recieve the and will run actions which are deemed required
 			decoder := msgpack.NewDecoder(bytes.NewReader(readData))
 			// Validate Array-based Msgpack-RPC (by checking array length)
 			payloadErr := utils.ValidateDecoder(decoder)
 			if payloadErr != nil {
-				l.logf("payloadErr: %v", payloadErr)
+				lmp.logf("payloadErr: %v", payloadErr)
 			}
 
 			methodData, decodeErr := decoder.DecodeString()
 			if decodeErr != nil {
-				l.logf("Routine: decodeErr: %v", decodeErr)
+				lmp.logf("Routine: decodeErr: %v", decodeErr)
 			}
 
 			methodWithoutValue, method, methodExists := strings.Cut(methodData, ":")
 			if !methodExists {
-				l.logf("Routine: method doesn't exist")
+				lmp.logf("Routine: method doesn't exist")
 				method = methodWithoutValue
 			}
 			switch method {
@@ -441,9 +442,9 @@ lmpForRoutine:
 				break lmpForRoutine
 			case "list":
 				// Throw the error out, it's always nil on linux.
-				players, _ := l.ListPlayers()
-				l.logf("Players: %s", players)
-				l.bidirChannel.OutChannel <- models.Message{
+				players, _ := lmp.ListPlayers()
+				lmp.logf("Players: %s", players)
+				lmp.bidirChannel.OutChannel <- models.Message{
 					Method: MPAutoMethod(MethodRList),
 					Args:   &mp.MPlayerList{Players: players},
 				}
@@ -451,13 +452,13 @@ lmpForRoutine:
 				var mpPlayVal mp.MPlayerPlay
 				mpParseErr := decoder.Decode(&mpPlayVal)
 				if mpParseErr != nil {
-					l.logf("Parse error: %v", mpParseErr)
+					lmp.logf("Parse error: %v", mpParseErr)
 				}
-				l.logf("Play on Player %d\n", mpPlayVal.PlayerIndex)
+				lmp.logf("Play on Player %d\n", mpPlayVal.PlayerIndex)
 				// Play the value
-				if len(l.playerNames) > mpPlayVal.PlayerIndex {
-					playerName := l.playerNames[mpPlayVal.PlayerIndex]
-					if selectedPlayer, playerExists := l.playerMap[playerName]; playerExists {
+				if len(lmp.playerNames) > mpPlayVal.PlayerIndex {
+					playerName := lmp.playerNames[mpPlayVal.PlayerIndex]
+					if selectedPlayer, playerExists := lmp.playerMap[playerName]; playerExists {
 						selectedPlayer.Play()
 					}
 				}
@@ -465,12 +466,12 @@ lmpForRoutine:
 				var mpPauseArgument mp.MPlayerPlay
 				mpParseErr := decoder.Decode(&mpPauseArgument)
 				if mpParseErr != nil {
-					l.logf("Pause::parseErr: %v", mpParseErr)
+					lmp.logf("Pause::parseErr: %v", mpParseErr)
 				}
-				l.logf("Pause on Player %d", mpPauseArgument.PlayerIndex)
-				if len(l.playerNames) > mpPauseArgument.PlayerIndex {
-					playerName := l.playerNames[mpPauseArgument.PlayerIndex]
-					if selectedPlayer, playerExists := l.playerMap[playerName]; playerExists {
+				lmp.logf("Pause on Player %d", mpPauseArgument.PlayerIndex)
+				if len(lmp.playerNames) > mpPauseArgument.PlayerIndex {
+					playerName := lmp.playerNames[mpPauseArgument.PlayerIndex]
+					if selectedPlayer, playerExists := lmp.playerMap[playerName]; playerExists {
 						selectedPlayer.Pause()
 					}
 				}
@@ -478,12 +479,12 @@ lmpForRoutine:
 				var mpPlayPause mp.MPlayerPlay
 				mpParseError := decoder.Decode(&mpPlayPause)
 				if mpParseError != nil {
-					l.logf("Playpause::parseErr: %v", mpParseError)
+					lmp.logf("Playpause::parseErr: %v", mpParseError)
 				}
-				l.logf("Play/Pause on player %d", mpPlayPause.PlayerIndex)
-				if len(l.playerNames) > mpPlayPause.PlayerIndex {
-					playerName := l.playerNames[mpPlayPause.PlayerIndex]
-					if selectedPlayer, playerExists := l.playerMap[playerName]; playerExists {
+				lmp.logf("Play/Pause on player %d", mpPlayPause.PlayerIndex)
+				if len(lmp.playerNames) > mpPlayPause.PlayerIndex {
+					playerName := lmp.playerNames[mpPlayPause.PlayerIndex]
+					if selectedPlayer, playerExists := lmp.playerMap[playerName]; playerExists {
 						selectedPlayer.PlayPause()
 					}
 				}
@@ -491,12 +492,12 @@ lmpForRoutine:
 				var mpFwdArgument mp.MPlayerPlay
 				mpParseErr := decoder.Decode(&mpFwdArgument)
 				if mpParseErr != nil {
-					l.logf("fwd::parseErr: %v", mpParseErr)
+					lmp.logf("fwd::parseErr: %v", mpParseErr)
 				}
-				l.logf("Fwd on player %d", mpFwdArgument.PlayerIndex)
-				if len(l.playerNames) > mpFwdArgument.PlayerIndex {
-					playerName := l.playerNames[mpFwdArgument.PlayerIndex]
-					if selectedPlayer, playerExists := l.playerMap[playerName]; playerExists {
+				lmp.logf("Fwd on player %d", mpFwdArgument.PlayerIndex)
+				if len(lmp.playerNames) > mpFwdArgument.PlayerIndex {
+					playerName := lmp.playerNames[mpFwdArgument.PlayerIndex]
+					if selectedPlayer, playerExists := lmp.playerMap[playerName]; playerExists {
 						selectedPlayer.Next()
 					}
 				}
@@ -504,45 +505,45 @@ lmpForRoutine:
 				var mpPrvArgument mp.MPlayerPlay
 				mpParseErr := decoder.Decode(&mpPrvArgument)
 				if mpParseErr != nil {
-					l.logf("prv::parseErr: %v", mpParseErr)
+					lmp.logf("prv::parseErr: %v", mpParseErr)
 				}
-				l.logf("Prv on player %d", mpPrvArgument.PlayerIndex)
+				lmp.logf("Prv on player %d", mpPrvArgument.PlayerIndex)
 
-				if len(l.playerNames) > mpPrvArgument.PlayerIndex {
-					playerName := l.playerNames[mpPrvArgument.PlayerIndex]
-					if selectedPlayer, playerExists := l.playerMap[playerName]; playerExists {
+				if len(lmp.playerNames) > mpPrvArgument.PlayerIndex {
+					playerName := lmp.playerNames[mpPrvArgument.PlayerIndex]
+					if selectedPlayer, playerExists := lmp.playerMap[playerName]; playerExists {
 						selectedPlayer.Previous()
 					}
 				}
 			default:
-				l.logf("Method: %s unimplemented", method)
+				lmp.logf("Method: %s unimplemented", method)
 			}
-		case moduleCommand := <-l.bidirChannel.CommandChannel:
+		case moduleCommand := <-lmp.bidirChannel.CommandChannel:
 			// If there's any other commands, put here
 			switch moduleCommand {
 			case "close":
 				break lmpForRoutine
 			default:
-				l.logf("ERROR: Unexpected command passed in!")
+				lmp.logf("ERROR: Unexpected command passed in!")
 				break lmpForRoutine
 			}
 		}
 	}
-	l.logf("Stopping")
+	lmp.logf("Stopping")
 }
 
-func (l *LinuxMediaPlayerSubsystem) Shutdown() {
+func (lmp *LinuxMediaPlayerSubsystem) Shutdown() {
 	// Stop the write loop & signal read loop
-	l.bidirChannel.CommandChannel <- "close"
-	l.signalLoopBreak <- false
-	for _, playerName := range l.playerNames {
-		l.RemovePlayer(playerName)
+	lmp.bidirChannel.CommandChannel <- "close"
+	lmp.signalLoopBreak <- false
+	for _, playerName := range lmp.playerNames {
+		lmp.removePlayerVals(playerName)
 	}
-	l.playerNames, l.playerMap, l.senderPlayerMap = []string{},
+	lmp.playerNames, lmp.playerMap, lmp.senderPlayerMap = []string{},
 		make(map[string]*mpris.Player),
 		make(map[string]string)
 	// Close and remove the message bus
-	l.bus.Close()
-	l.bus = nil
-	l.logf("Shutdown complete")
+	lmp.bus.Close()
+	lmp.bus = nil
+	lmp.logf("Shutdown complete")
 }
