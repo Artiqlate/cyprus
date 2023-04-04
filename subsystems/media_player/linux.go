@@ -20,6 +20,21 @@ import (
 	mp_signals "github.com/CrosineEnterprises/ganymede/models/mp/signals"
 )
 
+// -- MP:Linux Methods
+// TODO: Move to apollo.
+
+const (
+	MethodInit                  = "init"
+	MethodSeeked                = "seeked"
+	MethodMetadataUpdated       = "mu"
+	MethodPlaybackStatusUpdated = "psu"
+	MethodRList                 = "rlist"
+	// TODO: Switch this to "init" soon
+	MethodRSetupMetadata = "rsetup_metadata"
+)
+
+// -- DBus Specific Methods
+
 const (
 	dbusObjectPath         = "/org/mpris/MediaPlayer2"
 	SeekedMember           = "Seeked"
@@ -176,6 +191,7 @@ func (lmp *LinuxMediaPlayerSubsystem) AddPlayer(playerName string, isSetup bool)
 // -- SETUP METHODS
 
 // - Add Players (for setting up the first time)
+// TODO: Rewrite this entire method.
 func (lmp *LinuxMediaPlayerSubsystem) AddPlayers() error {
 	mediaPlayerNames, playerListErr := mpris.List(lmp.bus)
 	if playerListErr != nil {
@@ -205,7 +221,7 @@ func (lmp *LinuxMediaPlayerSubsystem) AddPlayers() error {
 		})
 		// TODO: Change this to `mp:init`, and move this to `Setup()`
 		lmp.bidirChannel.OutChannel <- models.Message{
-			Method: "mp:rsetup_metadata",
+			Method: MPMethod(MethodRSetupMetadata),
 			Args: &mp.SetupStatus{
 				Statuses: setupStatuses,
 			},
@@ -276,7 +292,7 @@ func (lmp *LinuxMediaPlayerSubsystem) handleSeeked(signal *dbus.Signal) {
 		// lmp.logf("Player %s seeked @ time %s", playerName, time.Duration(seekedTime*1000).String())
 		// Send the value to client
 		lmp.bidirChannel.OutChannel <- models.Message{
-			Method: "mp:linux:seeked",
+			Method: MPAutoMethod(MethodSeeked),
 			Args: &mp_signals.Seeked{
 				PlayerName: playerName,
 				PlayerIdx:  playerIdx,
@@ -303,7 +319,7 @@ func (lmp *LinuxMediaPlayerSubsystem) parseProperty(
 
 			// Decode on whether you need more data/context to be sent in this data-structure.
 			lmp.bidirChannel.OutChannel <- models.Message{
-				Method: "mp:linux:psu",
+				Method: MPAutoMethod(MethodPlaybackStatusUpdated),
 				Args: &mp_signals.PlaybackStatusChanged{
 					PlayerIndex:    playerIdx,
 					PlayerName:     playerName,
@@ -317,7 +333,8 @@ func (lmp *LinuxMediaPlayerSubsystem) parseProperty(
 			}
 			metadata := mp.MetadataFromMPRIS(metadataVariant)
 			lmp.bidirChannel.OutChannel <- models.Message{
-				Method: "mp:linux:mu", // "mu" == "metadata updated"
+				// "mu" == "metadata updated"
+				Method: MPAutoMethod(MethodMetadataUpdated),
 				Args: &mp_signals.MetadataChanged{
 					PlayerIndex: playerIdx,
 					PlayerName:  playerName,
@@ -431,12 +448,11 @@ lmpForRoutine:
 			case "close":
 				break lmpForRoutine
 			case "list":
-				// Throw the error our, it's always nil (might change depending
-				// on platform, but not required in Linux).
+				// Throw the error out, it's always nil on linux.
 				players, _ := l.ListPlayers()
 				l.logf("Players: %s", players)
 				l.bidirChannel.OutChannel <- models.Message{
-					Method: "mp:rlist",
+					Method: MPAutoMethod(MethodRList),
 					Args:   &mp.MPlayerList{Players: players},
 				}
 			case "play":
@@ -466,7 +482,6 @@ lmpForRoutine:
 						selectedPlayer.Pause()
 					}
 				}
-				// l.bidirChannel.OutChannel <- models.Message{Method: "mp:rpause", Args: nil}
 			case "playpause":
 				var mpPlayPause mp.MPlayerPlay
 				mpParseError := decoder.Decode(&mpPlayPause)
