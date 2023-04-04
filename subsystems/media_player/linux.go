@@ -71,24 +71,12 @@ func NewLinuxMediaPlayerSubsystem(bidirChan *comm.BiDirMessageChannel) *LinuxMed
 
 // -- Utility Methods
 
-func (lmp *LinuxMediaPlayerSubsystem) findSender(sender string) (string, bool) {
-	playerName, senderExists := lmp.senderPlayerMap[sender]
-	return playerName, senderExists
-}
-
-func (lmp *LinuxMediaPlayerSubsystem) findPlayerNameIdx(playerName string) (int, bool) {
-	for i, val := range lmp.playerNames {
-		if val == playerName {
-			return i, true
-		}
-	}
-	return 0, false
-}
-
 func (lmp *LinuxMediaPlayerSubsystem) findPlayerAndIdx(signal *dbus.Signal) (string, int, bool) {
-	if playerName, playerExists := lmp.findSender(signal.Sender); playerExists {
-		if playerIdx, playerIdxExists := lmp.findPlayerNameIdx(playerName); playerIdxExists {
-			return playerName, playerIdx, true
+	if playerName, playerExists := lmp.senderPlayerMap[signal.Sender]; playerExists {
+		for playerIdx, playerVal := range lmp.playerNames {
+			if playerVal == playerName {
+				return playerName, playerIdx, true
+			}
 		}
 	}
 	return "", 0, false
@@ -107,12 +95,14 @@ func (lmp *LinuxMediaPlayerSubsystem) removePlayerVals(playerName string) {
 		lmp.logf("WARN: SenderPlayer sender not found.")
 	}
 	playerNameExists := false
-	if playerIdx, playerIdxExists := lmp.findPlayerNameIdx(playerName); playerIdxExists {
-		lmp.playerNames = append(
-			lmp.playerNames[:playerIdx],
-			lmp.playerNames[playerIdx+1:]...,
-		)
-		playerNameExists = true
+	for playerIdx, playerVal := range lmp.playerNames {
+		if playerVal == playerName {
+			lmp.playerNames = append(
+				lmp.playerNames[:playerIdx],
+				lmp.playerNames[playerIdx+1:]...,
+			)
+			playerNameExists = true
+		}
 	}
 	if !playerNameExists {
 		lmp.logf("WARN: Player name not found.")
