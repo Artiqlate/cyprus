@@ -117,7 +117,7 @@ func (lmp *LinuxMediaPlayerSubsystem) ListPlayers() ([]string, error) {
 }
 
 // - Remove Player
-func (lmp *LinuxMediaPlayerSubsystem) RemovePlayer(playerName string) bool {
+func (lmp *LinuxMediaPlayerSubsystem) removePlayer(playerName string) bool {
 	if playerToRemove, playerExists := lmp.playerMap[playerName]; playerExists {
 		lmp.bus.RemoveMatchSignal(
 			dbus.WithMatchSender(playerName),
@@ -134,8 +134,8 @@ func (lmp *LinuxMediaPlayerSubsystem) RemovePlayer(playerName string) bool {
 }
 
 // - Add Player
-func (lmp *LinuxMediaPlayerSubsystem) AddPlayer(playerName string, isSetup bool) {
-	if lmp.RemovePlayer(playerName) {
+func (lmp *LinuxMediaPlayerSubsystem) addPlayer(playerName string, isSetup bool) {
+	if lmp.removePlayer(playerName) {
 		lmp.logf("WARN: Player previously existed. Removing.")
 	}
 	// If it's a change signal, allow 1/2 a second delay to let media player
@@ -189,14 +189,14 @@ func (lmp *LinuxMediaPlayerSubsystem) AddPlayer(playerName string, isSetup bool)
 
 // - Add Players (for setting up the first time)
 // TODO: Rewrite this entire method.
-func (lmp *LinuxMediaPlayerSubsystem) AddPlayers() error {
+func (lmp *LinuxMediaPlayerSubsystem) addPlayers() error {
 	mediaPlayerNames, playerListErr := mpris.List(lmp.bus)
 	if playerListErr != nil {
 		return playerListErr
 	}
 	var setupStatuses []mp.Status
 	for i, mPlayerName := range mediaPlayerNames {
-		lmp.AddPlayer(mPlayerName, true)
+		lmp.addPlayer(mPlayerName, true)
 		// Get playback status
 		plStatus, statusErr := lmp.playerMap[mPlayerName].GetPlaybackStatus()
 		if statusErr != nil {
@@ -245,14 +245,14 @@ func (lmp *LinuxMediaPlayerSubsystem) Setup() error {
 		return dbusConnAddSignalErr
 	}
 	// Add the currently alive players @ launch.
-	lmp.AddPlayers()
+	lmp.addPlayers()
 	// Bind DBus singal
 	lmp.bus.Signal(lmp.playerSigChan)
 	lmp.logf("Players + Senders added: %d", len(lmp.playerNames))
 	return nil
 }
 
-func (lmp *LinuxMediaPlayerSubsystem) SignalLoop() {
+func (lmp *LinuxMediaPlayerSubsystem) signalLoop() {
 	lmp.logf("SignalLoop: start")
 signalLoop:
 	for {
@@ -395,14 +395,14 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 	// Also send the "create"/"change"/"remove" operation contexts
 	// to the client also, or at least work on implementing the same.
 	if oldValue == "" {
-		lmp.AddPlayer(playerName, false)
+		lmp.addPlayer(playerName, false)
 		lmp.logf("Player Added: %s", playerName)
 	} else if newValue == "" {
-		lmp.RemovePlayer(playerName)
+		lmp.removePlayer(playerName)
 		lmp.logf("Player Removed: %s", playerName)
 	} else {
-		lmp.RemovePlayer(playerName)
-		lmp.AddPlayer(playerName, false)
+		lmp.removePlayer(playerName)
+		lmp.addPlayer(playerName, false)
 		lmp.logf("Player Changed: %s", playerName)
 	}
 }
@@ -413,7 +413,7 @@ func (lmp *LinuxMediaPlayerSubsystem) Routine() {
 		return
 	}
 	// Run the signal loop to send the change events to client.
-	go lmp.SignalLoop()
+	go lmp.signalLoop()
 	// Run the routine to pass in commands to validate values
 lmpForRoutine:
 	for {
