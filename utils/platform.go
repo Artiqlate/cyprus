@@ -34,7 +34,6 @@ func GeneratePlatformMethod(module string, platform PlatformKind, method string)
 }
 
 func GenerateAutoMethod(module string, method string) string {
-	fmt.Printf("Platform: %s", runtime.GOOS)
 	switch runtime.GOOS {
 	case "windows":
 		return fmt.Sprintf("%s:%s:%s", module, PlatformWindows, method)
@@ -43,7 +42,7 @@ func GenerateAutoMethod(module string, method string) string {
 	case "darwin":
 		return fmt.Sprintf("%s:%s:%s", module, PlatformMacOS, method)
 	default:
-		log.Printf("WARN[utils/platform]: non-standard platform running")
+		log.Printf("WARN[utils/platform]: unsupported platform running")
 		return fmt.Sprintf("%s:%s:%s", module, PlatformOther, method)
 	}
 }
