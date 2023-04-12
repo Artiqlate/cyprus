@@ -71,7 +71,7 @@ func NewLinuxMediaPlayerSubsystem(bidirChan *comm.BiDirMessageChannel) *LinuxMed
 
 // -- Utility Methods
 
-func (lmp *LinuxMediaPlayerSubsystem) findPlayerAndIdx(signal *dbus.Signal) (string, int, bool) {
+func (lmp *LinuxMediaPlayerSubsystem) findPlayerAndIndex(signal *dbus.Signal) (string, int, bool) {
 	if playerName, playerExists := lmp.senderPlayerMap[signal.Sender]; playerExists {
 		for playerIdx, playerVal := range lmp.playerNames {
 			if playerVal == playerName {
@@ -82,7 +82,7 @@ func (lmp *LinuxMediaPlayerSubsystem) findPlayerAndIdx(signal *dbus.Signal) (str
 	return "", 0, false
 }
 
-func (lmp *LinuxMediaPlayerSubsystem) removePlayerVals(playerName string) {
+func (lmp *LinuxMediaPlayerSubsystem) removePlayerValues(playerName string) {
 	delete(lmp.playerMap, playerName)
 	senderExists := false
 	for senderName, senderVal := range lmp.senderPlayerMap {
@@ -127,7 +127,7 @@ func (lmp *LinuxMediaPlayerSubsystem) removePlayer(playerName string) bool {
 		// Quit the player
 		playerToRemove.Quit()
 		// Delete all values
-		lmp.removePlayerVals(playerName)
+		lmp.removePlayerValues(playerName)
 		return true
 	}
 	return false
@@ -258,18 +258,17 @@ func (lmp *LinuxMediaPlayerSubsystem) Setup() error {
 //
 // This signals the client with player name, player index and the seeked time in microseconds (μs).
 func (lmp *LinuxMediaPlayerSubsystem) handleSeeked(signal *dbus.Signal) {
-	playerName, playerIdx, playerExists := lmp.findPlayerAndIdx(signal)
+	playerName, playerIndex, playerExists := lmp.findPlayerAndIndex(signal)
 	if playerExists {
 		seekedTime := signal.Body[0].(int64)
 		// lmp.logf("Player %s seeked @ time %s", playerName, time.Duration(seekedTime*1000).String())
-		// Send the value to client
+		// Send "Seeked" signal.
 		lmp.bidirChannel.OutChannel <- models.Message{
 			Method: MPAutoPlatformMethod(MethodSeeked),
 			Args: &mp_signals.Seeked{
-				// TODO: Change the order of playerName, playerIdx.
-				PlayerName: playerName,
-				PlayerIdx:  playerIdx,
-				SeekedInUs: seekedTime,
+				PlayerIndex: playerIndex,
+				PlayerName:  playerName,
+				SeekedInUs:  seekedTime,
 			},
 		}
 	}
@@ -334,7 +333,7 @@ func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signa
 	// signal.Body[0] = "org.mpris.MediaPlayer2.Player", representing interface
 	// name. Ignore that value.
 	lmp.logf("Signal: %+v", signal.Body)
-	playerName, playerIdx, playerExists := lmp.findPlayerAndIdx(signal)
+	playerName, playerIdx, playerExists := lmp.findPlayerAndIndex(signal)
 	if playerExists {
 		for _, signalProp := range signal.Body[1:] {
 			// Two kinds of value for signal body value are expected here:
@@ -559,7 +558,7 @@ func (lmp *LinuxMediaPlayerSubsystem) Shutdown() {
 	lmp.bidirChannel.CommandChannel <- "close"
 	lmp.signalLoopBreak <- false
 	for _, playerName := range lmp.playerNames {
-		lmp.removePlayerVals(playerName)
+		lmp.removePlayerValues(playerName)
 	}
 	lmp.playerNames, lmp.playerMap, lmp.senderPlayerMap = []string{},
 		make(map[string]*mpris.Player),
