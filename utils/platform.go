@@ -33,7 +33,7 @@ func GeneratePlatformMethod(module string, platform PlatformKind, method string)
 	return fmt.Sprintf("%s:%s", module, method)
 }
 
-func GenerateAutoMethod(module string, method string) string {
+func GenerateAutoPlatformMethod(module string, method string) string {
 	switch runtime.GOOS {
 	case "windows":
 		return fmt.Sprintf("%s:%s:%s", module, PlatformWindows, method)

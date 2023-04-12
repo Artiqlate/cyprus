@@ -22,9 +22,8 @@ func NewNetworkDiscovery(port int, secure bool) (*NetworkDiscovery, error) {
 		Service,
 		"local.",
 		port,
-		// TODO: Instead of sending some random values, send some useful
-		// 	information here.
-		[]string{"txtv=0", "lo=1", "la=2", fmt.Sprintf("secure=%t", secure)},
+		// If more information needs to be passed, add it here.
+		[]string{fmt.Sprintf("secure=%t", secure)},
 		nil,
 	)
 	if registerErr != nil {

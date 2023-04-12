@@ -252,35 +252,11 @@ func (lmp *LinuxMediaPlayerSubsystem) Setup() error {
 	return nil
 }
 
-func (lmp *LinuxMediaPlayerSubsystem) signalLoop() {
-	lmp.logf("SignalLoop: start")
-signalLoop:
-	for {
-		select {
-		case value := <-lmp.playerSigChan:
-			if value == nil {
-				lmp.logf("Warning: DBus signal being sent is 'nil'")
-				continue signalLoop
-			}
-			switch value.Name {
-			case "org.freedesktop.DBus.Properties.PropertiesChanged":
-				lmp.handlePropertiesChanged(value)
-			case "org.freedesktop.DBus.NameOwnerChanged":
-				lmp.handleNameOwnerChanged(value)
-			case "org.mpris.MediaPlayer2.Player.Seeked":
-				lmp.handleSeeked(value)
-			default:
-				lmp.logf("WARNING: MPRIS Signal")
-			}
-		// if need to break loop (produced by Close).
-		case <-lmp.signalLoopBreak:
-			break signalLoop
-		}
-	}
-}
+//	--- HANDLERS ---
 
-// -- Signal Handlers + Utilities
-
+// Handles the `Seeked` signal from Media Player
+//
+// This signals the client with player name, player index and the seeked time in microseconds (μs).
 func (lmp *LinuxMediaPlayerSubsystem) handleSeeked(signal *dbus.Signal) {
 	playerName, playerIdx, playerExists := lmp.findPlayerAndIdx(signal)
 	if playerExists {
@@ -288,8 +264,9 @@ func (lmp *LinuxMediaPlayerSubsystem) handleSeeked(signal *dbus.Signal) {
 		// lmp.logf("Player %s seeked @ time %s", playerName, time.Duration(seekedTime*1000).String())
 		// Send the value to client
 		lmp.bidirChannel.OutChannel <- models.Message{
-			Method: MPAutoMethod(MethodSeeked),
+			Method: MPAutoPlatformMethod(MethodSeeked),
 			Args: &mp_signals.Seeked{
+				// TODO: Change the order of playerName, playerIdx.
 				PlayerName: playerName,
 				PlayerIdx:  playerIdx,
 				SeekedInUs: seekedTime,
@@ -299,6 +276,13 @@ func (lmp *LinuxMediaPlayerSubsystem) handleSeeked(signal *dbus.Signal) {
 }
 
 // Property handler for handlePropertiesChanged
+//
+// This handles all the propertyChanged signals, for informing the user about
+// the same.
+//
+// Currently, the following properties are supported:
+// 1. `PlaybackStatus`: When Player Playback Status changes.
+// 2. `Metadata`: When Player Metadata changes (When media changes).
 func (lmp *LinuxMediaPlayerSubsystem) parseProperty(
 	playerIdx int,
 	playerName string,
@@ -315,7 +299,7 @@ func (lmp *LinuxMediaPlayerSubsystem) parseProperty(
 
 			// Decode on whether you need more data/context to be sent in this data-structure.
 			lmp.bidirChannel.OutChannel <- models.Message{
-				Method: MPAutoMethod(MethodPlaybackStatusUpdated),
+				Method: MPAutoPlatformMethod(MethodPlaybackStatusUpdated),
 				Args: &mp_signals.PlaybackStatusChanged{
 					PlayerIndex:    playerIdx,
 					PlayerName:     playerName,
@@ -329,7 +313,7 @@ func (lmp *LinuxMediaPlayerSubsystem) parseProperty(
 			}
 			metadata := mp.MetadataFromMPRIS(metadataVariant)
 			lmp.bidirChannel.OutChannel <- models.Message{
-				Method: MPAutoMethod(MethodMetadataUpdated),
+				Method: MPAutoPlatformMethod(MethodMetadataUpdated),
 				Args: &mp_signals.MetadataChanged{
 					PlayerIndex: playerIdx,
 					PlayerName:  playerName,
@@ -343,7 +327,9 @@ func (lmp *LinuxMediaPlayerSubsystem) parseProperty(
 	return nil
 }
 
-// This method handles "PropertiesChanged", like metadata or playback status change.
+// Signal handler for "PropertiesChanged"
+//
+// This method handles "PropertiesChanged" DBus Signal
 func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signal) error {
 	// signal.Body[0] = "org.mpris.MediaPlayer2.Player", representing interface
 	// name. Ignore that value.
@@ -366,6 +352,8 @@ func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signa
 	return nil
 }
 
+// Signal handler for "NameOwnerChanged"
+//
 // This handles "org.freedesktop.DBus.NameOwnerChanged", for seeing the owner
 // changes to a specific player.
 func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Signal) {
@@ -407,6 +395,40 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 	}
 }
 
+// DBus Signal Loop
+//
+// This listens to signals from MPRIS (through DBus) and emits it to the client.
+func (lmp *LinuxMediaPlayerSubsystem) signalLoop() {
+	lmp.logf("SignalLoop: start")
+signalLoop:
+	for {
+		select {
+		case value := <-lmp.playerSigChan:
+			if value == nil {
+				lmp.logf("Warning: DBus signal being sent is 'nil'")
+				continue signalLoop
+			}
+			switch value.Name {
+			case "org.freedesktop.DBus.Properties.PropertiesChanged":
+				lmp.handlePropertiesChanged(value)
+			case "org.freedesktop.DBus.NameOwnerChanged":
+				lmp.handleNameOwnerChanged(value)
+			case "org.mpris.MediaPlayer2.Player.Seeked":
+				lmp.handleSeeked(value)
+			default:
+				lmp.logf("WARNING: MPRIS Signal")
+			}
+		// if need to break loop (produced by Close).
+		case <-lmp.signalLoopBreak:
+			break signalLoop
+		}
+	}
+}
+
+// Main Subsystem Routine + Communication Loop
+//
+// This loop reads from command channel (from other modules) and communication
+// channel (for communication with client).
 func (lmp *LinuxMediaPlayerSubsystem) Routine() {
 	lmp.logf("Routine: starting")
 	if lmp.bidirChannel.InChannel == nil || lmp.bidirChannel.OutChannel == nil {
@@ -445,7 +467,7 @@ lmpForRoutine:
 				players, _ := lmp.ListPlayers()
 				lmp.logf("Players: %s", players)
 				lmp.bidirChannel.OutChannel <- models.Message{
-					Method: MPAutoMethod(MethodRList),
+					Method: MPAutoPlatformMethod(MethodRList),
 					Args:   &mp.MPlayerList{Players: players},
 				}
 			case "play":

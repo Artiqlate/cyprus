@@ -6,8 +6,8 @@ const (
 	MediaPlayerSubsystemName = "mp"
 )
 
-func MPAutoMethod(method string) string {
-	return utils.GenerateAutoMethod(MediaPlayerSubsystemName, method)
+func MPAutoPlatformMethod(method string) string {
+	return utils.GenerateAutoPlatformMethod(MediaPlayerSubsystemName, method)
 }
 
 func MPMethod(method string) string {
