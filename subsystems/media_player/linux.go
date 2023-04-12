@@ -362,7 +362,8 @@ func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signa
 	return nil
 }
 
-// TODO: Have better naming scheme
+// TODO: Have a better naming scheme
+// TODO: Move this to ganymede
 type PlayerData struct {
 	_msgpack       struct{} `msgpack:",as_array"`
 	PlayerName     string
