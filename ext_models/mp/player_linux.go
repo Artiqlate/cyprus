@@ -7,7 +7,7 @@ import (
 	"github.com/Pauloo27/go-mpris"
 )
 
-func NewPlayerDataFromPlayer(player *mpris.Player) (*mp.PlayerData, error) {
+func NewPlayerDataFromPlayer(player *mpris.Player) (*mp.FullMetadata, error) {
 	playbackStatus, psError := player.GetPlaybackStatus()
 	if psError != nil {
 		return nil, psError
@@ -40,7 +40,7 @@ func NewPlayerDataFromPlayer(player *mpris.Player) (*mp.PlayerData, error) {
 		return nil, positionErr
 	}
 
-	return &mp.PlayerData{
+	return &mp.FullMetadata{
 		PlaybackStatus: string(playbackStatus),
 		LoopStatus:     &loopStatusVal,
 		Rate:           rate,
