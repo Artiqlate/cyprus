@@ -115,11 +115,6 @@ func (lmp *LinuxMediaPlayerSubsystem) removePlayerValues(playerToRemove string) 
 
 // -- PLAYER METHODS --
 
-// - List Players
-func (lmp *LinuxMediaPlayerSubsystem) ListPlayers() ([]string, error) {
-	return lmp.playerNames, nil
-}
-
 // - Remove Player
 func (lmp *LinuxMediaPlayerSubsystem) removePlayer(playerName string) bool {
 	if playerToRemove, playerExists := lmp.playerMap[playerName]; playerExists {
@@ -344,6 +339,7 @@ func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signa
 	// signal.Body[0] = "org.mpris.MediaPlayer2.Player", representing interface
 	// name. Ignore that value.
 	lmp.logf("Signal: %+v", signal.Body)
+	// TODO: Remove the index value, let client handle that.
 	playerName, playerIdx, playerExists := lmp.findPlayerAndIndex(signal)
 	if playerExists {
 		for _, signalProp := range signal.Body[1:] {
@@ -560,8 +556,8 @@ lmpForRoutine:
 			case "close":
 				break lmpForRoutine
 			case "list":
-				// Throw the error out, it's always nil on linux.
-				players, _ := lmp.ListPlayers()
+				players := make([]string, len(lmp.playerNames))
+				copy(players, lmp.playerNames)
 				lmp.logf("Players: %s", players)
 				lmp.bidirChannel.OutChannel <- models.Message{
 					Method: MPAutoPlatformMethod(MethodRList),
@@ -574,7 +570,6 @@ lmpForRoutine:
 					lmp.logf("Parse error: %v", mpParseErr)
 				}
 				lmp.logf("Play on Player %d\n", mpPlayVal.PlayerIndex)
-				// Play the value
 				if len(lmp.playerNames) > mpPlayVal.PlayerIndex {
 					playerName := lmp.playerNames[mpPlayVal.PlayerIndex]
 					if selectedPlayer, playerExists := lmp.playerMap[playerName]; playerExists {
