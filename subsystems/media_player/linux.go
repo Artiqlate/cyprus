@@ -22,13 +22,16 @@ import (
 
 // -- MP:Linux Methods
 // TODO: Move to ganymede.
-
 const (
 	MethodInit                  = "init"
 	MethodSeeked                = "seeked"
 	MethodMetadataUpdated       = "mu"
 	MethodPlaybackStatusUpdated = "psu"
 	MethodRList                 = "rlist"
+	// "NameOwnerChanged" Signals
+	MethodPlayerCreated = "cr"
+	MethodPlayerUpdated = "up"
+	MethodPlayerRemoved = "rm"
 	// TODO: Switch this to "init" soon
 	MethodRSetupMetadata = "rsetup_metadata"
 )
@@ -36,7 +39,7 @@ const (
 // -- DBus Specific Methods
 
 const (
-	dbusObjectPath         = "/org/mpris/MediaPlayer2"
+	DBusMPRISPath          = "/org/mpris/MediaPlayer2"
 	SeekedMember           = "Seeked"
 	PlayerSeekedMemberName = "org.mpris.MediaPlayer2.Player.Seeked"
 )
@@ -48,6 +51,7 @@ type LinuxMediaPlayerSubsystem struct {
 	// Loop break signal
 	signalLoopBreak chan bool
 	// Linux-specific operations
+	// TODO: Remove playerNames. We'll move this logic to client-side.
 	playerNames     []string
 	playerMap       map[string]*mpris.Player
 	senderPlayerMap map[string]string
@@ -82,11 +86,11 @@ func (lmp *LinuxMediaPlayerSubsystem) findPlayerAndIndex(signal *dbus.Signal) (s
 	return "", 0, false
 }
 
-func (lmp *LinuxMediaPlayerSubsystem) removePlayerValues(playerName string) {
-	delete(lmp.playerMap, playerName)
+func (lmp *LinuxMediaPlayerSubsystem) removePlayerValues(playerToRemove string) {
+	delete(lmp.playerMap, playerToRemove)
 	senderExists := false
 	for senderName, senderVal := range lmp.senderPlayerMap {
-		if senderVal == playerName {
+		if senderVal == playerToRemove {
 			delete(lmp.senderPlayerMap, senderName)
 			senderExists = true
 		}
@@ -95,11 +99,11 @@ func (lmp *LinuxMediaPlayerSubsystem) removePlayerValues(playerName string) {
 		lmp.logf("WARN: SenderPlayer sender not found.")
 	}
 	playerNameExists := false
-	for playerIdx, playerVal := range lmp.playerNames {
-		if playerVal == playerName {
+	for playerIndex, playerValue := range lmp.playerNames {
+		if playerValue == playerToRemove {
 			lmp.playerNames = append(
-				lmp.playerNames[:playerIdx],
-				lmp.playerNames[playerIdx+1:]...,
+				lmp.playerNames[:playerIndex],
+				lmp.playerNames[playerIndex+1:]...,
 			)
 			playerNameExists = true
 		}
@@ -121,7 +125,7 @@ func (lmp *LinuxMediaPlayerSubsystem) removePlayer(playerName string) bool {
 	if playerToRemove, playerExists := lmp.playerMap[playerName]; playerExists {
 		lmp.bus.RemoveMatchSignal(
 			dbus.WithMatchSender(playerName),
-			dbus.WithMatchObjectPath(lmp.bus.Object(playerName, dbusObjectPath).(*dbus.Object).Path()),
+			dbus.WithMatchObjectPath(lmp.bus.Object(playerName, DBusMPRISPath).(*dbus.Object).Path()),
 			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
 		)
 		// Quit the player
@@ -149,7 +153,7 @@ func (lmp *LinuxMediaPlayerSubsystem) addPlayer(playerName string, isSetup bool)
 		// Register "org.freedesktop.DBus.Properties.PropertiesChanged"
 		lmp.bus.AddMatchSignal(
 			dbus.WithMatchSender(playerName),
-			dbus.WithMatchObjectPath(lmp.bus.Object(playerName, dbusObjectPath).Path()),
+			dbus.WithMatchObjectPath(lmp.bus.Object(playerName, DBusMPRISPath).Path()),
 			dbus.WithMatchInterface("org.freedesktop.DBus.Properties"),
 		)
 		lmp.logf("PLAYER NAME: %s", playerName)
@@ -167,7 +171,7 @@ func (lmp *LinuxMediaPlayerSubsystem) addPlayer(playerName string, isSetup bool)
 		// Register "org.mpris.MediaPlayer2.Player.Seeked"
 		lmp.bus.AddMatchSignal(
 			dbus.WithMatchSender(sender),
-			dbus.WithMatchObjectPath(lmp.bus.Object(playerName, dbusObjectPath).Path()),
+			dbus.WithMatchObjectPath(lmp.bus.Object(playerName, DBusMPRISPath).Path()),
 			dbus.WithMatchInterface(mpris.PlayerInterface),
 			dbus.WithMatchMember(SeekedMember),
 		)
@@ -185,11 +189,11 @@ func (lmp *LinuxMediaPlayerSubsystem) addPlayer(playerName string, isSetup bool)
 	}
 }
 
-// -- SETUP METHODS
+// --- SETUP METHODS ---
 
-// - Add Players (for setting up the first time)
+// This adds all players for for setting up.
 // TODO: Rewrite this entire method.
-func (lmp *LinuxMediaPlayerSubsystem) addPlayers() error {
+func (lmp *LinuxMediaPlayerSubsystem) setupAddPlayers() error {
 	mediaPlayerNames, playerListErr := mpris.List(lmp.bus)
 	if playerListErr != nil {
 		return playerListErr
@@ -227,6 +231,11 @@ func (lmp *LinuxMediaPlayerSubsystem) addPlayers() error {
 	return nil
 }
 
+// Main Setup Method
+//
+// This sets up the media player subsystem for linux, which includes setting up
+// DBus Session Connections for MPRIS and Adding Players for the first launch,
+// and anything else related to the same.
 func (lmp *LinuxMediaPlayerSubsystem) Setup() error {
 	// Set up Desktop Bus for Media Player Subsystem (Linux)
 	busConn, sessionBusErr := dbus.SessionBus()
@@ -245,7 +254,7 @@ func (lmp *LinuxMediaPlayerSubsystem) Setup() error {
 		return dbusConnAddSignalErr
 	}
 	// Add the currently alive players @ launch.
-	lmp.addPlayers()
+	lmp.setupAddPlayers()
 	// Bind DBus singal
 	lmp.bus.Signal(lmp.playerSigChan)
 	lmp.logf("Players + Senders added: %d", len(lmp.playerNames))
@@ -258,6 +267,7 @@ func (lmp *LinuxMediaPlayerSubsystem) Setup() error {
 //
 // This signals the client with player name, player index and the seeked time in microseconds (μs).
 func (lmp *LinuxMediaPlayerSubsystem) handleSeeked(signal *dbus.Signal) {
+	// TODO: Remove player index
 	playerName, playerIndex, playerExists := lmp.findPlayerAndIndex(signal)
 	if playerExists {
 		seekedTime := signal.Body[0].(int64)
@@ -266,6 +276,7 @@ func (lmp *LinuxMediaPlayerSubsystem) handleSeeked(signal *dbus.Signal) {
 		lmp.bidirChannel.OutChannel <- models.Message{
 			Method: MPAutoPlatformMethod(MethodSeeked),
 			Args: &mp_signals.Seeked{
+				// TODO: Remove player index
 				PlayerIndex: playerIndex,
 				PlayerName:  playerName,
 				SeekedInUs:  seekedTime,
@@ -351,6 +362,33 @@ func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signa
 	return nil
 }
 
+// TODO: Have better naming scheme
+type PlayerData struct {
+	_msgpack       struct{} `msgpack:",as_array"`
+	PlayerName     string
+	PlaybackStatus string
+	Metadata       mp.Metadata
+}
+
+type PlayerCreated struct {
+	_msgpack struct{} `msgpack:",as_array"`
+	// This returns the updated player list
+	PlayerData
+	UpdatedPlayerNames []string
+}
+
+type PlayerUpdated struct {
+	_msgpack struct{} `msgpack:",as_array"`
+	PlayerData
+	UpdatedPlayerNames []string
+}
+
+type PlayerRemoved struct {
+	_msgpack           struct{} `msgpack:",as_array"`
+	PlayerName         string
+	UpdatedPlayerNames []string
+}
+
 // Signal handler for "NameOwnerChanged"
 //
 // This handles "org.freedesktop.DBus.NameOwnerChanged", for seeing the owner
@@ -382,14 +420,73 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 	// Also send the "create"/"change"/"remove" operation contexts
 	// to the client also, or at least work on implementing the same.
 	if oldValue == "" {
+		// CREATE PLAYER
 		lmp.addPlayer(playerName, false)
+		player := lmp.playerMap[playerName]
+		// Player Playback Status
+		playbackStatus, playbackStatusErr := player.GetPlaybackStatus()
+		if playbackStatusErr != nil {
+			lmp.logf("PlaybackErr: %v", playbackStatusErr)
+			return
+		}
+		// Player Metadata
+		unparsedMetadata, getMetadataErr := player.GetMetadata()
+		if getMetadataErr != nil {
+			lmp.logf("Get Metadata (unparsed): %v", getMetadataErr)
+			return
+		}
+		parsedMetadata := mp.MetadataFromMPRIS(unparsedMetadata)
+		// Player Index Check
+		lmp.bidirChannel.OutChannel <- models.Message{
+			Method: MPAutoPlatformMethod(MethodPlayerCreated),
+			Args: &PlayerCreated{
+				UpdatedPlayerNames: lmp.playerNames,
+				PlayerData: PlayerData{
+					PlayerName:     playerName,
+					PlaybackStatus: string(playbackStatus),
+					Metadata:       *parsedMetadata,
+				},
+			},
+		}
 		lmp.logf("Player Added: %s", playerName)
 	} else if newValue == "" {
 		lmp.removePlayer(playerName)
+		lmp.bidirChannel.OutChannel <- models.Message{
+			Method: MPAutoPlatformMethod(MethodPlayerRemoved),
+			Args: &PlayerRemoved{
+				PlayerName:         playerName,
+				UpdatedPlayerNames: lmp.playerNames,
+			},
+		}
 		lmp.logf("Player Removed: %s", playerName)
 	} else {
 		lmp.removePlayer(playerName)
 		lmp.addPlayer(playerName, false)
+		player := lmp.playerMap[playerName]
+		// Player Playback Status
+		playbackStatus, playbackStatusErr := player.GetPlaybackStatus()
+		if playbackStatusErr != nil {
+			lmp.logf("PlaybackErr: %v", playbackStatusErr)
+			return
+		}
+		// Player Metadata
+		unparsedMetadata, getMetadataErr := player.GetMetadata()
+		if getMetadataErr != nil {
+			lmp.logf("Get Metadata (unparsed): %v", getMetadataErr)
+			return
+		}
+		parsedMetadata := mp.MetadataFromMPRIS(unparsedMetadata)
+		lmp.bidirChannel.OutChannel <- models.Message{
+			Method: MPAutoPlatformMethod(MethodPlayerUpdated),
+			Args: &PlayerUpdated{
+				PlayerData: PlayerData{
+					PlayerName:     playerName,
+					PlaybackStatus: string(playbackStatus),
+					Metadata:       *parsedMetadata,
+				},
+				UpdatedPlayerNames: lmp.playerNames,
+			},
+		}
 		lmp.logf("Player Changed: %s", playerName)
 	}
 }
