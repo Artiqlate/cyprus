@@ -360,31 +360,6 @@ func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signa
 
 // TODO: Have a better naming scheme
 // TODO: Move this to ganymede
-type PlayerData struct {
-	_msgpack       struct{} `msgpack:",as_array"`
-	PlayerName     string
-	PlaybackStatus string
-	Metadata       mp.Metadata
-}
-
-type PlayerCreated struct {
-	_msgpack struct{} `msgpack:",as_array"`
-	// This returns the updated player list
-	PlayerData
-	UpdatedPlayerNames []string
-}
-
-type PlayerUpdated struct {
-	_msgpack struct{} `msgpack:",as_array"`
-	PlayerData
-	UpdatedPlayerNames []string
-}
-
-type PlayerRemoved struct {
-	_msgpack           struct{} `msgpack:",as_array"`
-	PlayerName         string
-	UpdatedPlayerNames []string
-}
 
 // Signal handler for "NameOwnerChanged"
 //
@@ -436,9 +411,9 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 		// Player Index Check
 		lmp.bidirChannel.OutChannel <- models.Message{
 			Method: MPAutoPlatformMethod(MethodPlayerCreated),
-			Args: &PlayerCreated{
+			Args: &mp_signals.PlayerCreated{
 				UpdatedPlayerNames: lmp.playerNames,
-				PlayerData: PlayerData{
+				PlayerData: mp.PlayerData{
 					PlayerName:     playerName,
 					PlaybackStatus: string(playbackStatus),
 					Metadata:       *parsedMetadata,
@@ -450,7 +425,7 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 		lmp.removePlayer(playerName)
 		lmp.bidirChannel.OutChannel <- models.Message{
 			Method: MPAutoPlatformMethod(MethodPlayerRemoved),
-			Args: &PlayerRemoved{
+			Args: &mp_signals.PlayerRemoved{
 				PlayerName:         playerName,
 				UpdatedPlayerNames: lmp.playerNames,
 			},
@@ -475,8 +450,8 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 		parsedMetadata := mp.MetadataFromMPRIS(unparsedMetadata)
 		lmp.bidirChannel.OutChannel <- models.Message{
 			Method: MPAutoPlatformMethod(MethodPlayerUpdated),
-			Args: &PlayerUpdated{
-				PlayerData: PlayerData{
+			Args: &mp_signals.PlayerUpdated{
+				PlayerData: mp.PlayerData{
 					PlayerName:     playerName,
 					PlaybackStatus: string(playbackStatus),
 					Metadata:       *parsedMetadata,
