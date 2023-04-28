@@ -540,7 +540,7 @@ lmpForRoutine:
 					Args:   &mp.MPlayerList{Players: players},
 				}
 			case "play":
-				var mpPlayVal mp.MPlayerPlay
+				var mpPlayVal mp.PlayerIndex
 				mpParseErr := decoder.Decode(&mpPlayVal)
 				if mpParseErr != nil {
 					lmp.logf("Parse error: %v", mpParseErr)
@@ -553,7 +553,7 @@ lmpForRoutine:
 					}
 				}
 			case "pause":
-				var mpPauseArgument mp.MPlayerPlay
+				var mpPauseArgument mp.PlayerIndex
 				mpParseErr := decoder.Decode(&mpPauseArgument)
 				if mpParseErr != nil {
 					lmp.logf("Pause::parseErr: %v", mpParseErr)
@@ -566,7 +566,7 @@ lmpForRoutine:
 					}
 				}
 			case "playpause":
-				var mpPlayPause mp.MPlayerPlay
+				var mpPlayPause mp.PlayerIndex
 				mpParseError := decoder.Decode(&mpPlayPause)
 				if mpParseError != nil {
 					lmp.logf("Playpause::parseErr: %v", mpParseError)
@@ -579,7 +579,7 @@ lmpForRoutine:
 					}
 				}
 			case "fwd":
-				var mpFwdArgument mp.MPlayerPlay
+				var mpFwdArgument mp.PlayerIndex
 				mpParseErr := decoder.Decode(&mpFwdArgument)
 				if mpParseErr != nil {
 					lmp.logf("fwd::parseErr: %v", mpParseErr)
@@ -592,7 +592,7 @@ lmpForRoutine:
 					}
 				}
 			case "prv":
-				var mpPrvArgument mp.MPlayerPlay
+				var mpPrvArgument mp.PlayerIndex
 				mpParseErr := decoder.Decode(&mpPrvArgument)
 				if mpParseErr != nil {
 					lmp.logf("prv::parseErr: %v", mpParseErr)
