@@ -359,7 +359,6 @@ func (lmp *LinuxMediaPlayerSubsystem) handlePropertiesChanged(signal *dbus.Signa
 }
 
 // TODO: Have a better naming scheme
-// TODO: Move this to ganymede
 
 // Signal handler for "NameOwnerChanged"
 //
@@ -422,6 +421,7 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 		}
 		lmp.logf("Player Added: %s", playerName)
 	} else if newValue == "" {
+		// -- DELETE PLAYER
 		lmp.removePlayer(playerName)
 		lmp.bidirChannel.OutChannel <- models.Message{
 			Method: MPAutoPlatformMethod(MethodPlayerRemoved),
@@ -432,6 +432,7 @@ func (lmp *LinuxMediaPlayerSubsystem) handleNameOwnerChanged(busSignal *dbus.Sig
 		}
 		lmp.logf("Player Removed: %s", playerName)
 	} else {
+		// -- UPDATE PLAYER
 		lmp.removePlayer(playerName)
 		lmp.addPlayer(playerName, false)
 		player := lmp.playerMap[playerName]
