@@ -44,6 +44,49 @@ const (
 	PlayerSeekedMemberName = "org.mpris.MediaPlayer2.Player.Seeked"
 )
 
+// type PlayerWrap struct {
+// 	Player *mpris.Player
+// }
+
+// func NewPlayer(bus *dbus.Conn, playerName string) *PlayerWrap {
+// 	player := mpris.New(bus, playerName)
+// 	return &PlayerWrap{
+// 		Player: player,
+// 	}
+// }
+
+// func (pl *PlayerWrap) Next() error {
+// 	return pl.Player.Next()
+// }
+
+// func (pl *PlayerWrap) Previous() error {
+// 	return pl.Player.Previous()
+// }
+
+// func (pl *PlayerWrap) Pause() error {
+// 	return pl.Player.Pause()
+// }
+
+// func (pl *PlayerWrap) PlayPause() error {
+// 	return pl.Player.PlayPause()
+// }
+
+// func (pl *PlayerWrap) Stop() error {
+// 	return pl.Player.PlayPause()
+// }
+
+// func (pl *PlayerWrap) Play() error {
+// 	return pl.Player.Play()
+// }
+
+// func (pl *PlayerWrap) Seek(offset float64) error {
+// 	return pl.Player.Seek(offset)
+// }
+
+// func (pl *PlayerWrap) SetPosition(position float64) error {
+// 	return pl.Player.SetPosition(position)
+// }
+
 type LinuxMediaPlayerSubsystem struct {
 	logf         func(string, ...interface{})
 	bus          *dbus.Conn
@@ -73,7 +116,7 @@ func NewLinuxMediaPlayerSubsystem(bidirChan *comm.BiDirMessageChannel) *LinuxMed
 	}
 }
 
-// -- Utility Methods
+// -- UTILITY METHODS --
 
 func (lmp *LinuxMediaPlayerSubsystem) findPlayerAndIndex(signal *dbus.Signal) (string, int, bool) {
 	if playerName, playerExists := lmp.senderPlayerMap[signal.Sender]; playerExists {
@@ -113,7 +156,7 @@ func (lmp *LinuxMediaPlayerSubsystem) removePlayerValues(playerToRemove string) 
 	}
 }
 
-// -- PLAYER METHODS --
+// -- MEDIA PLAYER, PLAYER METHODS --
 
 // - Remove Player
 func (lmp *LinuxMediaPlayerSubsystem) removePlayer(playerName string) bool {
@@ -494,6 +537,12 @@ signalLoop:
 	}
 }
 
+type PlayerSelection struct {
+	//lint:ignore U1000 `msgpack` options, not for serialization.
+	_msgpack   struct{} `msgpack:",as_array"`
+	PlayerName string
+}
+
 // Main Subsystem Routine + Communication Loop
 //
 // This loop reads from command channel (from other modules) and communication
@@ -529,6 +578,7 @@ lmpForRoutine:
 				method = methodWithoutValue
 			}
 			switch method {
+			// -- FUNCTIONS --
 			case "close":
 				break lmpForRoutine
 			case "list":
@@ -539,7 +589,10 @@ lmpForRoutine:
 					Method: MPAutoPlatformMethod(MethodRList),
 					Args:   &mp.MPlayerList{Players: players},
 				}
-			case "play":
+			// -- METHODS --
+			// NAME METHODS
+			// INDEX METHODS
+			case "iplay":
 				var mpPlayVal mp.PlayerIndex
 				mpParseErr := decoder.Decode(&mpPlayVal)
 				if mpParseErr != nil {
@@ -552,7 +605,7 @@ lmpForRoutine:
 						selectedPlayer.Play()
 					}
 				}
-			case "pause":
+			case "ipause":
 				var mpPauseArgument mp.PlayerIndex
 				mpParseErr := decoder.Decode(&mpPauseArgument)
 				if mpParseErr != nil {
@@ -565,7 +618,7 @@ lmpForRoutine:
 						selectedPlayer.Pause()
 					}
 				}
-			case "playpause":
+			case "iplaypause":
 				var mpPlayPause mp.PlayerIndex
 				mpParseError := decoder.Decode(&mpPlayPause)
 				if mpParseError != nil {
@@ -578,7 +631,7 @@ lmpForRoutine:
 						selectedPlayer.PlayPause()
 					}
 				}
-			case "fwd":
+			case "ifwd":
 				var mpFwdArgument mp.PlayerIndex
 				mpParseErr := decoder.Decode(&mpFwdArgument)
 				if mpParseErr != nil {
@@ -591,7 +644,7 @@ lmpForRoutine:
 						selectedPlayer.Next()
 					}
 				}
-			case "prv":
+			case "iprv":
 				var mpPrvArgument mp.PlayerIndex
 				mpParseErr := decoder.Decode(&mpPrvArgument)
 				if mpParseErr != nil {
