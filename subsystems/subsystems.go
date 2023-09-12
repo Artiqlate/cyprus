@@ -1,6 +1,6 @@
 package subsystems
 
-import "crosine.com/cyprus/comm"
+import "github.com/Artiqlate/cyprus/comm"
 
 type ServerSubsystems struct {
 	mp MediaPlayerSubsystem

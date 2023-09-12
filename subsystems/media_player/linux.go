@@ -12,12 +12,12 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 
 	// 1st party imports
-	"crosine.com/cyprus/comm"
-	ext_mp "crosine.com/cyprus/ext_models/mp"
-	"crosine.com/cyprus/utils"
-	"github.com/CrosineEnterprises/ganymede/models"
-	"github.com/CrosineEnterprises/ganymede/models/mp"
-	mp_signals "github.com/CrosineEnterprises/ganymede/models/mp/signals"
+	"github.com/Artiqlate/cyprus/comm"
+	ext_mp "github.com/Artiqlate/cyprus/ext_models/mp"
+	"github.com/Artiqlate/cyprus/utils"
+	"github.com/Artiqlate/ganymede/models"
+	"github.com/Artiqlate/ganymede/models/mp"
+	mp_signals "github.com/Artiqlate/ganymede/models/mp/signals"
 )
 
 // -- MP:Linux Methods

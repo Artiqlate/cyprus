@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"crosine.com/cyprus/comm"
-	"crosine.com/cyprus/ext_models"
-	"crosine.com/cyprus/utils"
-	"github.com/CrosineEnterprises/ganymede/models"
-	"github.com/CrosineEnterprises/ganymede/network"
+	"github.com/Artiqlate/cyprus/comm"
+	"github.com/Artiqlate/cyprus/ext_models"
+	"github.com/Artiqlate/cyprus/utils"
+	"github.com/Artiqlate/ganymede/models"
+	"github.com/Artiqlate/ganymede/network"
 	"github.com/vmihailenco/msgpack/v5"
 	"nhooyr.io/websocket"
 )

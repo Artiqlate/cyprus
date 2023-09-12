@@ -17,12 +17,12 @@ import (
 	"os/signal"
 	"time"
 
-	"crosine.com/cyprus/comm"
-	"crosine.com/cyprus/subsystems"
-	"crosine.com/cyprus/transmission"
-	"crosine.com/cyprus/utils"
-	"github.com/CrosineEnterprises/ganymede/models"
-	"github.com/CrosineEnterprises/ganymede/models/base"
+	"github.com/Artiqlate/cyprus/comm"
+	"github.com/Artiqlate/cyprus/subsystems"
+	"github.com/Artiqlate/cyprus/transmission"
+	"github.com/Artiqlate/cyprus/utils"
+	"github.com/Artiqlate/ganymede/models"
+	"github.com/Artiqlate/ganymede/models/base"
 )
 
 // Default server port

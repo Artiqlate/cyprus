@@ -1,6 +1,6 @@
 package media_player
 
-import "crosine.com/cyprus/utils"
+import "github.com/Artiqlate/cyprus/utils"
 
 const (
 	MediaPlayerSubsystemName = "mp"

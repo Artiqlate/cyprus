@@ -1,7 +1,7 @@
 package ext_models
 
 import (
-	models_base "github.com/CrosineEnterprises/ganymede/models/base"
+	models_base "github.com/Artiqlate/ganymede/models/base"
 	"github.com/vmihailenco/msgpack/v5"
 	"nhooyr.io/websocket"
 )

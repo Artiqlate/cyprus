@@ -16,7 +16,7 @@ Copyright (C) 2023 Goutham Krishna K V
 import (
 	"fmt"
 
-	"github.com/CrosineEnterprises/ganymede/models/mp"
+	"github.com/Artiqlate/ganymede/models/mp"
 )
 
 func ParsePlaybackStatus(playbackStatus string) (string, error) {

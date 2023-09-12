@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 
-	"crosine.com/cyprus"
+	"github.com/Artiqlate/cyprus"
 )
 
 func main() {

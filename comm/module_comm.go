@@ -1,6 +1,6 @@
 package comm
 
-import "github.com/CrosineEnterprises/ganymede/models"
+import "github.com/Artiqlate/ganymede/models"
 
 type BiDirMessageChannel struct {
 	InChannel      chan []byte

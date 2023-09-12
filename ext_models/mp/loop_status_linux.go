@@ -6,7 +6,7 @@ package ext_mp
 import (
 	"fmt"
 
-	"github.com/CrosineEnterprises/ganymede/models/mp"
+	"github.com/Artiqlate/ganymede/models/mp"
 )
 
 func ParseLoopStatus(loopStatus string) (string, error) {

@@ -1,5 +1,5 @@
-github.com/CrosineEnterprises/ganymede v0.0.0-20230428193623-21d6aea8fda7 h1:H1dFMJjWZqnTN4pO+gpFnZZ/5mLDsK0X5ttaSw3zaMc=
-github.com/CrosineEnterprises/ganymede v0.0.0-20230428193623-21d6aea8fda7/go.mod h1:JpbA9NIUYg7623ogPuqVu+pv4NvSBWAs4VCTrK2z/HU=
+github.com/Artiqlate/ganymede v0.0.0-20230912084355-1b57e33ae8fa h1:/YrPOlpCYRkWeGmk36CrX+4ozMDHWRYKB5ANBRr+JBo=
+github.com/Artiqlate/ganymede v0.0.0-20230912084355-1b57e33ae8fa/go.mod h1:1S4g845f8k1b+e/i9lAQ28lybglQ/89rV8CGy2S03zA=
 github.com/Pauloo27/go-mpris v1.4.0 h1:KWNTZuXeOdOdIVdzwG/JOOZHlveNiMjiSaK0AWi220c=
 github.com/Pauloo27/go-mpris v1.4.0/go.mod h1:+9otYxTLPRTVZ6i2k6VrG1Y0RzMbBXGuEUQM4ZSvjxU=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=

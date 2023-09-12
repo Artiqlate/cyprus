@@ -3,7 +3,7 @@ package ext_mp
 import (
 	"math"
 
-	"github.com/CrosineEnterprises/ganymede/models/mp"
+	"github.com/Artiqlate/ganymede/models/mp"
 	"github.com/Pauloo27/go-mpris"
 )
 

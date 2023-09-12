@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"runtime"
 
-	"crosine.com/cyprus/comm"
-	media_player "crosine.com/cyprus/subsystems/media_player"
+	"github.com/Artiqlate/cyprus/comm"
+	media_player "github.com/Artiqlate/cyprus/subsystems/media_player"
 )
 
 type MediaPlayerSubsystem interface {
