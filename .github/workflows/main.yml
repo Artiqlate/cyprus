@@ -1,0 +1,23 @@
+# Cyprus - Main Workflow
+name: Main (Build + Test)
+on: ["push"]
+
+jobs:
+  build:
+    name: "Build"
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '^1.22.1'
+      - run: go build -v ./cmd/cyprus.go
+  test:
+    name: "Test"
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '^1.21'
+      - run: "echo \"TESTS: not implemented yet\""
