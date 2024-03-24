@@ -14,7 +14,6 @@ require (
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
-	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/miekg/dns v1.1.58 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
